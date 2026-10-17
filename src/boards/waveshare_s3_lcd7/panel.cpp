@@ -272,9 +272,14 @@ void panelBacklightOn(uint8_t brightness) {
 // touch chip stays awake as well and moves its INT line on a touch: away from
 // the level it rests at, which depends on how the chip was configured.
 void panelPrepareDeepSleep() {
+  const int level = digitalRead(hw_pins::TOUCH_INT);
+  const bool idle_high = s_touch_ok && gt911::intIdleHigh();
+  logSDf("Deep sleep: INT %d, touch %s, idle %s, wake on %d",
+         level, s_touch_ok ? "ok" : "not ready",
+         idle_high ? "high" : "low", idle_high ? 0 : 1);
   ch422g::write(hw_pins::EXIO_BACKLIGHT, false);
   if (!s_touch_ok) return;
   gt911::clearStatus();
   esp_sleep_enable_ext0_wakeup((gpio_num_t)hw_pins::TOUCH_INT,
-                               gt911::intIdleHigh() ? 0 : 1);
+                               idle_high ? 0 : 1);
 }

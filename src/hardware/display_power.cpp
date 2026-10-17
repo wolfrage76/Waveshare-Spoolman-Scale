@@ -63,6 +63,18 @@ void displayNoteWeight(float grams) {
 }
 
 void handlePowerManagement() {
+#ifdef BOARD_WAVESHARE_S3_LCD7
+  // Test branch only. Sleep 20s after boot so the wake can be watched
+  // without waiting out dim, screen-off, or the saved timeout. A tag on
+  // the pad does not hold it off.
+  if (millis() >= 20000) {
+    Serial.println("Deep sleep...");
+    logSD("Deep sleep: test, 20s after boot");
+    displayPrepareDeepSleep();
+    delay(100);
+    esp_deep_sleep_start();
+  }
+#endif
   // A tag on the reader is not activity: it used to reset the timer on every
   // poll, so a spool left on the scale kept the panel at full brightness for
   // good. It dims now like an idle scale. What the tag still does is hold off
