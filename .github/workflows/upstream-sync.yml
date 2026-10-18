@@ -28,7 +28,7 @@ name: Upstream sync
 # version (-w2 and so on) is still tagged by hand.
 on:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '7,27,47 * * * *'
   workflow_dispatch:
     inputs:
       tag:
@@ -96,7 +96,7 @@ jobs:
           fi
 
           # An earlier run left a pull request: that one has to be dealt with
-          # first. Without this every run would fail on it again, every 6 hours.
+          # first. Without this every run would fail on it again, every 20 minutes.
           PR=$(gh pr list --head "$BRANCH" --state open --json url -q '.[0].url')
           if [ -n "$PR" ]; then
             echo "waiting for $PR"
