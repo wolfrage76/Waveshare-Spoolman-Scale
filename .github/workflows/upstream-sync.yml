@@ -2,20 +2,22 @@ name: Upstream sync
 
 # Follows Niko11111/SpoolmanScale. When upstream publishes a new public
 # release (a GitHub Release that is not marked pre-release), it is merged
-# into main here, checked by ci.yml for every board, and released as the same
-# version with this fork's counter: v0.8.3 becomes v0.8.3-w1. Pushing that tag
-# starts build-all-boards.yml, which does the actual release as for a
-# hand-made tag. The upstream tag has to be vX.Y.Z or vX.Y.Z-beta.N:
-# scripts/check.sh refuses a bare -beta, so such a release fails the checks
-# and gets a pull request instead.
+# into a branch here and checked by ci.yml for every board. The built
+# firmware is attached to this run. The tag is not pushed until the Release
+# job is approved: that is the point where a real scale can be flashed first.
+# Approving pushes the tag, and build-all-boards.yml then publishes as for a
+# hand-made tag. The version is the upstream one with this fork's counter:
+# v0.8.3 becomes v0.8.3-w1. The upstream tag has to be vX.Y.Z or
+# vX.Y.Z-beta.N: scripts/check.sh refuses a bare -beta, so such a release
+# fails the checks and gets a pull request instead.
 #
 # Nothing is released when the merge conflicts or a check fails. A pull
 # request against main is opened instead, and the run stops for that version
 # for as long as the pull request is open. Once it is merged, the next run
-# finds upstream already in main and releases it from there.
+# finds upstream already in main, checks again, and waits for approval.
 #
-# "Checks" are scripts/check.sh and a build of every board. Nothing here runs
-# on a real scale, so a synced release is exactly as safe as those are.
+# "Checks" are scripts/check.sh and a build of every board. The approval is
+# what a run on a real scale is for.
 #
 # Needs the secret SYNC_TOKEN: a fine-grained token for this repository with
 # Contents, Pull requests and Workflows set to write. GITHUB_TOKEN will not do:
@@ -232,7 +234,7 @@ jobs:
               git push --force origin "$(git rev-parse "$U^{commit}"):refs/heads/$BRANCH"
               gh pr create --base main --head "$BRANCH" \
                 --title "Sync upstream $U (conflicts)" \
-                --body "Upstream released $U and it does not merge into main by itself. Resolve the conflicts and merge this pull request; the next run of the Upstream sync workflow then checks every board and releases $F. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+                --body "Upstream released $U and it does not merge into main by itself. Resolve the conflicts and merge this pull request; the next run of the Upstream sync workflow then checks every board and waits for the release of $F to be approved. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
               echo "::error::$U does not merge cleanly, pull request opened"
               exit 1
             fi
@@ -264,10 +266,30 @@ jobs:
     with:
       ref: ${{ needs.detect.outputs.branch }}
 
+  ready:
+    name: Binaries ready to test
+    needs: [detect, merge, test]
+    if: ${{ !inputs.dry_run && needs.merge.outputs.merged == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say where the firmware is
+        env:
+          F: ${{ needs.detect.outputs.fork }}
+          U: ${{ needs.detect.outputs.upstream }}
+        run: |
+          {
+            echo "### $F is built, not released"
+            echo "Upstream $U is merged and both boards compiled. Download the firmware artifacts on this run and flash a scale before approving **Release $F**."
+            echo "Rejecting that job leaves the tag unpublished. The branch \`${{ needs.detect.outputs.branch }}\` stays until a release is approved."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   release:
     name: Release ${{ needs.detect.outputs.fork }}
-    needs: [detect, merge, test]
-    if: ${{ !inputs.dry_run }}
+    needs: [detect, merge, test, ready]
+    if: ${{ !inputs.dry_run && needs.merge.outputs.merged == 'true' }}
+    # Protected in the repository settings: this job waits until it is
+    # approved. That is the only manual step.
+    environment: release
     runs-on: ubuntu-latest
     env:
       U: ${{ needs.detect.outputs.upstream }}
@@ -308,4 +330,4 @@ jobs:
         run: |
           gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
             --title "Sync upstream $U (checks failed)" \
-            --body "Upstream $U merged into main, but scripts/check.sh or a board build failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. Fix it on this branch and merge; the next run of the Upstream sync workflow checks main again and releases $F."
+            --body "Upstream $U merged into main, but scripts/check.sh or a board build failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. Fix it on this branch and merge; the next run of the Upstream sync workflow checks again and waits for the release of $F to be approved."

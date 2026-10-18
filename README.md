@@ -70,7 +70,7 @@ A scale running this fork looks for updates **here**, not at the original projec
 
 ## How it relates to the original
 
-This fork follows the original's releases: every few hours it checks for a new public release of the original, merges it, builds and checks every board, and if all of that passes, publishes it here as the same version with `-w1` at the end. Version numbers are the original's; the counter at the end marks a release of this fork, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. Enclosures for both boards are [listed above](#enclosures).
+This fork follows the original's releases: every few hours it checks for a new public release of the original, merges it, and builds and checks every board. The firmware from that run can be flashed before the release is approved; approving it publishes the same version here with `-w1` at the end. Version numbers are the original's; the counter at the end marks a release of this fork, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. Enclosures for both boards are [listed above](#enclosures).
 
 Problems with the Waveshare board or with anything in the list above belong to this fork. Please do not report them to the original project.
 
