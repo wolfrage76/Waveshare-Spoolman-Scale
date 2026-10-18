@@ -9,6 +9,7 @@
 #include <esp_lcd_panel_ops.h>
 #include <esp_heap_caps.h>
 #include <esp_lcd_panel_rgb.h>
+#include <driver/rtc_io.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
 #include <string.h>
@@ -272,14 +273,33 @@ void panelBacklightOn(uint8_t brightness) {
 // touch chip stays awake as well and moves its INT line on a touch: away from
 // the level it rests at, which depends on how the chip was configured.
 void panelPrepareDeepSleep() {
-  const int level = digitalRead(hw_pins::TOUCH_INT);
+  // The backlight write and the touch-status clear share the touch chip's
+  // bus, and either one can pull INT down for a moment. Do them first, then
+  // wait until the line is back at its idle level. The digital pull-up dies
+  // in deep sleep; without the RTC pull-up the open-drain line falls and the
+  // wake, which is waiting for that fall, fires at once.
+  ch422g::write(hw_pins::EXIO_BACKLIGHT, false);
+  if (s_touch_ok) gt911::clearStatus();
+  const gpio_num_t pin = (gpio_num_t)hw_pins::TOUCH_INT;
   const bool idle_high = s_touch_ok && gt911::intIdleHigh();
+  const int wake_level = idle_high ? 0 : 1;
+  rtc_gpio_init(pin);
+  rtc_gpio_set_direction(pin, RTC_GPIO_MODE_INPUT_ONLY);
+  rtc_gpio_pulldown_dis(pin);
+  rtc_gpio_pullup_en(pin);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+  int level = 0;
+  for (int i = 0; i < 20; i++) {
+    delay(10);
+    level = gpio_get_level(pin);
+    if (level != wake_level) break;
+  }
   logSDf("Deep sleep: INT %d, touch %s, idle %s, wake on %d",
          level, s_touch_ok ? "ok" : "not ready",
-         idle_high ? "high" : "low", idle_high ? 0 : 1);
-  ch422g::write(hw_pins::EXIO_BACKLIGHT, false);
-  if (!s_touch_ok) return;
-  gt911::clearStatus();
-  esp_sleep_enable_ext0_wakeup((gpio_num_t)hw_pins::TOUCH_INT,
-                               idle_high ? 0 : 1);
+         idle_high ? "high" : "low", wake_level);
+  if (!s_touch_ok || level == wake_level) {
+    logSD("Deep sleep: touch wake not armed");
+    return;
+  }
+  esp_sleep_enable_ext0_wakeup(pin, wake_level);
 }
