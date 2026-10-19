@@ -12,8 +12,7 @@
 
 #define LS_KEY_PRESET         "lbl_fm_preset"
 #define LS_LIST_TIMEOUT_MS    8000
-// The basic renderer answers in a tenth of a second; a busy or distant
-// server gets room before the print gives up on it.
+// Allow time for the server's configured renderer and network latency.
 #define LS_RENDER_TIMEOUT_MS  15000
 // The list is asked again after this long, so a preset laid out in FilaMan
 // meanwhile shows up; one that did not answer is asked again sooner.
@@ -29,17 +28,18 @@
 #define LS_MIN_HEAP           60000
 #define LS_WAIT_STEP_MS       20
 
-// Which label a raster is: spool, preset, the print row it is drawn for,
+// Which label a raster is: spool, preset, print row, roll orientation,
 // and the server it came from.
 struct LabelKey {
   int      spool_id, preset_id;
   uint16_t dpi, row;
+  bool     landscape;
   uint32_t gen;
 };
 
 static bool sameKey(const LabelKey& a, const LabelKey& b) {
   return a.spool_id == b.spool_id && a.preset_id == b.preset_id && a.dpi == b.dpi &&
-         a.row == b.row && a.gen == b.gen;
+         a.row == b.row && a.landscape == b.landscape && a.gen == b.gen;
 }
 
 enum JobKind : uint8_t { JOB_LIST, JOB_PREVIEW };
@@ -103,6 +103,7 @@ static bool keyFor(const LabelPrinterConfig& c, int spool_id, LabelKey* k) {
   k->preset_id = labelServerPresetId();
   k->dpi = labelPrinterProfile(c.model).dpi;
   k->row = labelPrinterRasterWidth(c.model, c.media_width_mm);
+  k->landscape = c.media_width_mm >= c.media_length_mm;
   k->gen = backendGeneration();
   return spool_id > 0 && k->preset_id > 0 && k->dpi > 0 && k->row > 0;
 }
@@ -113,6 +114,7 @@ static FilamanLabelRequest requestFor(const LabelKey& k) {
   r.preset_id = k.preset_id;
   r.dpi = k.dpi;
   r.row_width = k.row;
+  r.landscape = k.landscape;
   r.timeout_ms = LS_RENDER_TIMEOUT_MS;
   return r;
 }

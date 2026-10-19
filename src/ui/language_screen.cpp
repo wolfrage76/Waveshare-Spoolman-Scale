@@ -24,7 +24,7 @@ static lv_obj_t *scr_language = nullptr;
 // on the next boot anyway. Each button clears the other's pick: a cancelled
 // choice must not ride along with the next one.
 static int s_pick_lang = -1;   // 0 DE, 1 EN, 2 FR, -1 untouched
-static int s_pick_date = -1;   // 0 DD.MM.YYYY, 1 YYYY-MM-DD, -1 untouched
+static int s_pick_date = -1;   // a DateFormat, -1 untouched
 
 static void commitLanguageChoice() {
   if (s_pick_lang >= 0) prefsPutUChar("lang", (uint8_t)s_pick_lang);
@@ -41,6 +41,31 @@ void closeLanguageScreen() {
   if (!scr_language) return;
   lv_obj_del_async(scr_language);
   scr_language = nullptr;
+}
+
+// One of the three date format buttons, side by side under their caption.
+#define DATE_BTN_W 148
+#define DATE_BTN_H 52
+#define DATE_BTN_Y 178
+static void dateFormatButton(lv_obj_t* scr, int x, DateFormat fmt, StringID caption) {
+  lv_obj_t *btn = lv_btn_create(scr);
+  lv_obj_set_size(btn, DATE_BTN_W, DATE_BTN_H);
+  lv_obj_set_pos(btn, x, DATE_BTN_Y);
+  const bool active = (g_date_fmt == fmt);
+  lv_obj_set_style_bg_color(btn, lv_color_hex(active ? UI_COL_CHOICE_BG : UI_COL_SURFACE), 0);
+  lv_obj_set_style_radius(btn, 10, 0);
+  lv_obj_set_style_shadow_width(btn, 0, 0);
+  lv_obj_set_style_border_width(btn, 2, 0);
+  lv_obj_set_style_border_color(btn, lv_color_hex(active ? UI_COL_ACCENT : UI_COL_LINE), 0);
+  lv_obj_t *lbl = lv_label_create(btn);
+  lv_label_set_text(lbl, T(caption));
+  lv_obj_set_style_text_color(lbl, lv_color_hex(active ? UI_COL_ACCENT : UI_COL_CAPTION), 0);
+  lv_obj_set_style_text_font(lbl, &lv_font_montserrat_ext_16, 0);
+  lv_obj_center(lbl);
+  lv_obj_add_event_cb(btn, [](lv_event_t *e){
+    s_pick_date = (int)(intptr_t)lv_event_get_user_data(e); s_pick_lang = -1;
+    showRebootPopup(commitLanguageChoice);
+  }, LV_EVENT_CLICKED, (void*)(intptr_t)fmt);
 }
 
 void showLanguageScreen() {
@@ -195,45 +220,9 @@ void showLanguageScreen() {
   lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_ext_14, 0);
   lv_obj_set_pos(lbl_date, 12, 158);
 
-  const int DB_W = 218, DB_H = 52, DB_Y = 178;
-
-  lv_obj_t *btn_dmy = lv_btn_create(scr);
-  lv_obj_set_size(btn_dmy, DB_W, DB_H);
-  lv_obj_set_pos(btn_dmy, 8, DB_Y);
-  bool dmy_active = (g_date_fmt == 0);
-  lv_obj_set_style_bg_color(btn_dmy, lv_color_hex(dmy_active ? UI_COL_CHOICE_BG : UI_COL_SURFACE), 0);
-  lv_obj_set_style_radius(btn_dmy, 10, 0);
-  lv_obj_set_style_shadow_width(btn_dmy, 0, 0);
-  lv_obj_set_style_border_width(btn_dmy, 2, 0);
-  lv_obj_set_style_border_color(btn_dmy, lv_color_hex(dmy_active ? UI_COL_ACCENT : UI_COL_LINE), 0);
-  lv_obj_t *lbl_dmy = lv_label_create(btn_dmy);
-  lv_label_set_text(lbl_dmy, "DD.MM.YYYY");
-  lv_obj_set_style_text_color(lbl_dmy, lv_color_hex(dmy_active ? UI_COL_ACCENT : UI_COL_CAPTION), 0);
-  lv_obj_set_style_text_font(lbl_dmy, &lv_font_montserrat_ext_16, 0);
-  lv_obj_center(lbl_dmy);
-  lv_obj_add_event_cb(btn_dmy, [](lv_event_t *e){
-    s_pick_date = 0; s_pick_lang = -1;
-    showRebootPopup(commitLanguageChoice);
-  }, LV_EVENT_CLICKED, NULL);
-
-  lv_obj_t *btn_iso = lv_btn_create(scr);
-  lv_obj_set_size(btn_iso, DB_W, DB_H);
-  lv_obj_set_pos(btn_iso, 254, DB_Y);
-  bool iso_active = (g_date_fmt == 1);
-  lv_obj_set_style_bg_color(btn_iso, lv_color_hex(iso_active ? UI_COL_CHOICE_BG : UI_COL_SURFACE), 0);
-  lv_obj_set_style_radius(btn_iso, 10, 0);
-  lv_obj_set_style_shadow_width(btn_iso, 0, 0);
-  lv_obj_set_style_border_width(btn_iso, 2, 0);
-  lv_obj_set_style_border_color(btn_iso, lv_color_hex(iso_active ? UI_COL_ACCENT : UI_COL_LINE), 0);
-  lv_obj_t *lbl_iso = lv_label_create(btn_iso);
-  lv_label_set_text(lbl_iso, "YYYY-MM-DD");
-  lv_obj_set_style_text_color(lbl_iso, lv_color_hex(iso_active ? UI_COL_ACCENT : UI_COL_CAPTION), 0);
-  lv_obj_set_style_text_font(lbl_iso, &lv_font_montserrat_ext_16, 0);
-  lv_obj_center(lbl_iso);
-  lv_obj_add_event_cb(btn_iso, [](lv_event_t *e){
-    s_pick_date = 1; s_pick_lang = -1;
-    showRebootPopup(commitLanguageChoice);
-  }, LV_EVENT_CLICKED, NULL);
+  dateFormatButton(scr, 8, DATE_FMT_DMY, STR_DATE_FMT_DMY);
+  dateFormatButton(scr, 166, DATE_FMT_ISO, STR_DATE_FMT_ISO);
+  dateFormatButton(scr, 324, DATE_FMT_US, STR_DATE_FMT_US);
 
   // Time zone. A row rather than a pair of buttons, because there are too many
   // of them: the button carries the current zone so the setting can be read

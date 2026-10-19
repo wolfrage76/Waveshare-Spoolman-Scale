@@ -33,8 +33,9 @@ static const char THEME_CSS[] PROGMEM =
     ".tcard:hover{background:var(--surface-2)}"
     // Apply stays in view while the page scrolls: a choice made at the top
     // with the button far below looked like nothing happened. Something
-    // changed and not applied yet fills it and says so.
-    ".tbar{position:sticky;bottom:12px;z-index:5;display:flex;gap:12px;align-items:center;"
+    // changed and not applied yet fills it and says so. Inside a backend's
+    // frame --vis-bot lifts it to the edge of what is on screen (app.js).
+    ".tbar{position:sticky;bottom:calc(12px + var(--vis-bot,0px));z-index:5;display:flex;gap:12px;align-items:center;"
     "flex-wrap:wrap;margin-top:14px;padding:12px 16px;border-radius:12px;"
     "background:var(--surface);border:1px solid var(--line)}"
     ".tbar .tdirty{display:none;font-size:12.5px;color:var(--ink-soft)}"

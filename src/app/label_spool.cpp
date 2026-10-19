@@ -13,6 +13,7 @@
 #include "hardware/sd_logger.h"
 #include "services/backend.h"
 #include "services/backend_api.h"
+#include "ui/date_display.h"
 
 // One spool by id, a small answer: a slow server only costs the label its date.
 #define LABEL_DATE_TIMEOUT_MS  4000
@@ -97,12 +98,15 @@ bool labelSpoolLast(SpoolLabelData* out) {
 
 bool labelSpoolDatesKnown() { return s_have_last && s_dates_for == s_last.id; }
 
-// "2026-03-03T10:00:00Z" as the servers send it, to dd.mm.yyyy.
+// "2026-03-03T10:00:00Z" as the servers send it, in the date format the
+// display uses (Settings > Language), so label and screen agree.
 static void isoToDate(const char* iso, char* out, size_t n) {
   out[0] = '\0';
   int y = 0, m = 0, day = 0;
   if (!iso || sscanf(iso, "%4d-%2d-%2d", &y, &m, &day) != 3) return;
-  snprintf(out, n, "%02d.%02d.%04d", day, m, y);
+  char ymd[16];
+  snprintf(ymd, sizeof(ymd), "%04d-%02d-%02d", y, m, day);
+  isoToLocal(ymd, out, n);
 }
 
 // One spool's dates from the backend. False when it did not answer; `first`

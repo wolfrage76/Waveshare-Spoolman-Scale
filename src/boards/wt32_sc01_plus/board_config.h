@@ -63,6 +63,8 @@ constexpr int8_t TOUCH_SCL = 5;      // FT6336U internal board bus
 constexpr int8_t TOUCH_INT = 7;      // FT6336U INT for wake-up
 
 constexpr int8_t LCD_BACKLIGHT = 45;
+// Resets the ST7796 panel and, on this board, the FT6336U touch chip as well.
+constexpr int8_t LCD_RESET = 4;
 
 constexpr int8_t SD_CS = 41;
 constexpr int8_t SD_SCK = 39;

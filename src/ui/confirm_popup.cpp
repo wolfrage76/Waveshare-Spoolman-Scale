@@ -15,7 +15,9 @@
 #include "services/auto_weight_state.h"
 #include "services/prefs_store.h"
 #include "services/spoolman_actions.h"
+#include "services/tag_write.h"
 #include "dried_action.h"
+#include "more_info_screen.h"
 #include "app/deferred_actions.h"
 #include "spoolman_screen.h"
 #include "tare_entry.h"
@@ -85,6 +87,7 @@ static int        s_job_spool_id  = 0;  // ... carried with the parked write
 
 static void tareFollowUp();
 static void tareDropFollowUp();
+static void askFreeTag();
 
 void handleConfirmPopupDeferredActions() {
   if (s_job == CJ_NONE) return;
@@ -115,7 +118,7 @@ void handleConfirmPopupDeferredActions() {
     case CJ_TARE_FILAMENT: patchFilamentSpoolWeight(s_job_value); tareFollowUp(); break;
     case CJ_TARE_VENDOR:   patchVendorSpoolWeight(s_job_value);   tareFollowUp(); break;
     case CJ_ARCHIVE:
-      patchArchiveSpool();
+      if (patchArchiveSpool()) askFreeTag();
       break;
     case CJ_CAP_RAISE:
       // Order matters: the label first, so the weight that follows has room.
@@ -134,6 +137,38 @@ void handleConfirmPopupDeferredActions() {
   }
 }
 
+
+// The spool "release the tag" was asked for. The answer comes a touch later,
+// and a spool lifted off meanwhile clears sm_id, so the unlink is dropped
+// rather than sent to whatever lies there then.
+static int s_free_tag_spool_id = 0;
+
+// Asked once the archive is through, never before: a failed archive must not
+// leave a spool that is still active without its tag. Only for a spool that
+// has a binding, and the erase line only when the tag on the reader is one
+// requestTagEraseNow() would actually erase.
+static void askFreeTag() {
+  if (!sm_found || sm_id <= 0) return;
+  if (smBoundUidCount() == 0 && !tag_present) return;
+  s_free_tag_spool_id = sm_id;
+  char msg[224];
+  const bool erase = tagIsWritableNtag() && tagCachedHasRecord();
+  snprintf(msg, sizeof(msg), erase ? "%s\n\n%s" : "%s", T(STR_FREE_TAG_ASK),
+           T(STR_FREE_TAG_ERASE_LINE));
+  logSDf("Archive: asking to release the tag of spool %d (erase=%d)", sm_id, erase ? 1 : 0);
+  showConfirmPopup(msg, 7);
+}
+
+static void freeTagConfirmed() {
+  if (sm_id != s_free_tag_spool_id || sm_id <= 0) {
+    logSDf("Release tag: was for spool %d, spool %d is loaded now - not sent",
+           s_free_tag_spool_id, sm_id);
+    return;
+  }
+  // Every tag of the spool, the other flange too: an archived spool keeps
+  // none. Only the one on the reader can be erased, the other keeps its data.
+  requestSpoolUnlink(s_free_tag_spool_id, true, true);
+}
 
 // The weight the scope buttons below will store. Normally whatever is on the
 // pad, but a brand new spool can derive it instead -- see the New spool button.
@@ -803,6 +838,8 @@ void showConfirmPopup(const char* msg, int action) {
       closeConfirmPopup();
       if (act == 1) btn_dried_cb(nullptr);
       if (act == 3) s_job = CJ_ARCHIVE;
+      // 7 = release the tag of the spool just archived. Flags only.
+      if (act == 7) freeTagConfirmed();
       if (act == 4) spoolmanClearHost();
       // 5 = downgrade confirmed on the OTA screen. Only the flag here; the
       // download runs from appLoop().
@@ -812,7 +849,7 @@ void showConfirmPopup(const char* msg, int action) {
       if (act == 6) cal_reset_pending = true;
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_ja = lv_label_create(btn_ja);
-    lv_label_set_text(lbl_ja, T(STR_BTN_CONFIRMED));
+    lv_label_set_text(lbl_ja, T(action == 7 ? STR_BTN_FREE_TAG : STR_BTN_CONFIRMED));
     lv_obj_set_style_text_font(lbl_ja, &lv_font_montserrat_ext_18, 0);
     lv_obj_set_style_text_color(lbl_ja, lv_color_hex(UI_COL_OK_TEXT), 0);
     lv_obj_center(lbl_ja);
@@ -826,7 +863,8 @@ void showConfirmPopup(const char* msg, int action) {
     lv_obj_set_style_shadow_width(btn_nein, 0, 0);
     lv_obj_add_event_cb(btn_nein, [](lv_event_t *e){ closeConfirmPopup(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_nein = lv_label_create(btn_nein);
-    lv_label_set_text(lbl_nein, T(STR_CANCEL));
+    // Keeping the tag is a fine answer after an archive, not a cancel.
+    lv_label_set_text(lbl_nein, T(action == 7 ? STR_TW_BTN_KEEP : STR_CANCEL));
     lv_obj_set_style_text_font(lbl_nein, &lv_font_montserrat_ext_18, 0);
     lv_obj_set_style_text_color(lbl_nein, lv_color_hex(UI_COL_BAD_TEXT), 0);
     lv_obj_center(lbl_nein);

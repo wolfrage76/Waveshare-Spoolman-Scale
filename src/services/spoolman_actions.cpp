@@ -133,16 +133,16 @@ int patchSpoolmanWeight(float remaining, bool skip_cap_check) {
   return code;
 }
 
-void patchArchiveSpool() {
-  if (!wifi_ok) { Serial.println("patchArchiveSpool: no WiFi"); return; }
-  if (!sm_found || sm_id == 0) { Serial.println("patchArchiveSpool: no spool"); return; }
+bool patchArchiveSpool() {
+  if (!wifi_ok) { Serial.println("patchArchiveSpool: no WiFi"); return false; }
+  if (!sm_found || sm_id == 0) { Serial.println("patchArchiveSpool: no spool"); return false; }
   Serial.printf("PATCH archive: spool ID %d\n", sm_id);
   int code = serverReachNote(backendPatchArchiveSpool(cfg_spoolman_base, sm_id), true);
   logSDf("PATCH archive ID=%d HTTP %d", sm_id, code);
   if (!backendWriteOk(code)) {
     Serial.printf("PATCH archive error: %d\n", code);
     lv_label_set_text(lbl_spoolman_weight, T(STR_ERR_SAVE));
-    return;
+    return false;
   }
 
   Serial.println("Spool archived!");
@@ -175,6 +175,7 @@ void patchArchiveSpool() {
   // what the block above was already trying to do.
   sm_archived = true;
   updateLinkButton();
+  return true;
 }
 
 // Empties the field a UID was migrated out of, once it is safely in the

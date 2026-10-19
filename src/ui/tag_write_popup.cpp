@@ -35,6 +35,7 @@ static lv_obj_t *scr_tag_write = nullptr;
 static bool     close_pending   = false;
 static bool     confirm_pending = false;
 static bool     erase_ask_pending = false;
+static bool     erase_now_pending = false;   // erase already agreed to, no question
 static bool     mismatch_ask_pending = false;
 static int      s_spool_id      = 0;
 static AskMode  s_mode          = ASK_WRITE;
@@ -104,6 +105,14 @@ void requestTagEraseAsk() {
   if (!tagIsWritableNtag() || !tagCachedHasRecord()) return;
   snprintf(s_erase_fmt, sizeof(s_erase_fmt), "%s", tagCachedInfo()->fmt);
   erase_ask_pending = true;
+}
+
+void requestTagEraseNow() {
+  // The same gate as the question: a Bambu or MIFARE tag, or one carrying
+  // nothing of ours, is left alone even though the user agreed to an erase.
+  if (!tagIsWritableNtag() || !tagCachedHasRecord()) return;
+  snprintf(s_erase_fmt, sizeof(s_erase_fmt), "%s", tagCachedInfo()->fmt);
+  erase_now_pending = true;
 }
 
 // A modal, not the status line. lbl_status is repainted by the NFC poll from
@@ -372,6 +381,31 @@ void tagWriteAskAnswer(bool yes) {
   close_pending   = true;
 }
 
+// Hands the agreed write or erase to the writer and puts up the busy card.
+// s_mode says which of the two it is.
+static void queueTagJob() {
+  // No link flag any of the three ways: the write follows a link that already
+  // happened, the rewrite a spool that is already bound, and the erase an
+  // unlink. The format is the one set in Settings > Scale; it used to be
+  // OpenSpool with no way to say otherwise, which left an ACE user no path at
+  // all from the device.
+  const bool queued = (s_mode == ASK_ERASE)
+                        ? tagWriteRequest(0, TAG_FMT_ERASE, false)
+                        : tagWriteRequest(s_spool_id, (TagFormat)g_tagwrite_fmt, false);
+  if (queued) {
+    s_watching = true;
+    // From here to the result the loop is busy with the tag and the screen
+    // would say nothing. The question is gone by now, so the pool holds one
+    // of the two at a time.
+    tagBusyShow(s_mode == ASK_ERASE);
+  } else {
+    // Only reachable when another write is still parked, which the tag page
+    // could have started. Saying so beats a popup that closes and does nothing.
+    showResult(TW_ERR_WRITE);
+    logSDf("TagWritePopup: writer busy, nothing queued");
+  }
+}
+
 void handleTagWritePopupDeferredActions() {
   // The result of a write or erase that is already running. tagWriteTick()
   // carries it out on this same loop task, so the state settles within a pass.
@@ -407,6 +441,20 @@ void handleTagWritePopupDeferredActions() {
     showTagEraseAskPopup();
   }
 
+  // Agreed to together with the unlink, so straight to the writer. Never
+  // parked while another popup or write is busy: the tag on the reader by then
+  // may be a different one, and nothing checks it again before the erase.
+  if (erase_now_pending) {
+    erase_now_pending = false;
+    if (scr_tag_write || s_watching) {
+      logSD("TagWritePopup: erase dropped, the writer is busy");
+    } else {
+      s_mode = ASK_ERASE;
+      logSDf("TagWritePopup: erasing without a question, tag holds %s", s_erase_fmt);
+      queueTagJob();
+    }
+  }
+
   if (mismatch_ask_pending) {
     mismatch_ask_pending = false;
     // A write that started after the question was taken answers it.
@@ -424,24 +472,5 @@ void handleTagWritePopupDeferredActions() {
   }
   confirm_pending = false;
 
-  // No link flag any of the three ways: the write follows a link that already
-  // happened, the rewrite a spool that is already bound, and the erase an
-  // unlink. The format is the one set in Settings > Scale; it used to be
-  // OpenSpool with no way to say otherwise, which left an ACE user no path at
-  // all from the device.
-  const bool queued = (s_mode == ASK_ERASE)
-                        ? tagWriteRequest(0, TAG_FMT_ERASE, false)
-                        : tagWriteRequest(s_spool_id, (TagFormat)g_tagwrite_fmt, false);
-  if (queued) {
-    s_watching = true;
-    // From here to the result the loop is busy with the tag and the screen
-    // would say nothing. The question is gone by now, so the pool holds one
-    // of the two at a time.
-    tagBusyShow(s_mode == ASK_ERASE);
-  } else {
-    // Only reachable when another write is still parked, which the tag page
-    // could have started. Saying so beats a popup that closes and does nothing.
-    showResult(TW_ERR_WRITE);
-    logSDf("TagWritePopup: writer busy, nothing queued");
-  }
+  queueTagJob();
 }

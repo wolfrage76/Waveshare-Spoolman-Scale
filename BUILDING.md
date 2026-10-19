@@ -90,7 +90,7 @@ The PN532 and NAU7802 share the same I2C bus (SDA/SCL) and are wired in parallel
 | 4 | Green | GPIO11 (SCL) | PN532 SCL + NAU7802 SCL |
 | 5 | Blue | - | unused |
 | 6 | White | - | unused |
-| 7 | Brown | GPIO12 (RST) | PN532 RST |
+| 7 | Brown | GPIO14 | PN532 RSTPDN |
 
 ### PN532 – Soldering & Assembly
 
@@ -115,7 +115,9 @@ If you use a 5-pin JST SH 1.0mm connector on the PN532 pigtail, the mount openin
 | 2 | Red | 5 V | Pin 1 (Red) |
 | 3 | Yellow | SDA | Pin 3 (Yellow) |
 | 4 | White | SCL | Pin 4 (Green) |
-| 5 | Orange | RST | Pin 7 (Brown) |
+| 5 | Orange | RSTPDN | Pin 7 (Brown) |
+
+Solder the orange wire to **RSTPDN**, the pin at the end of the labelled 10-pin row (AUX1 ... SIGIN, RSTPDN), not to the header opposite. The [manual](https://niko11111.github.io/SpoolmanScale-Docs/build/wiring/) shows it in a photo.
 
 ### NAU7802 – STEMMA QT Connector (JST SH 1.0mm 4-pin)
 

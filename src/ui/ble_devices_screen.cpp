@@ -9,19 +9,15 @@
 #include "hardware/sd_logger.h"
 #include "lang.h"
 #include "services/ble_service.h"
+#include "services/ble_discovery.h"
 #include "services/label_printer.h"
 #include "ui/info_popup.h"
 #include "ui/loading_overlay.h"
 #include "ui/theme.h"
 #include "ui_common.h"
 
-// How many devices a scan keeps, named ones first. The list shows only the
-// named ones unless asked for all: a printer always says its name, and the
-// nameless (phones, beacons, the neighbour's lamp) are most of what a scan
-// sees. Twelve rows took 69 % of the old LVGL pool (23.09.2026), so "all"
-// stops at that; lvPoolHasRoomForRow() guards it on top.
-#define BLE_SCAN_MAX      16
-#define BLE_LIST_MAX_ROWS 12
+// Compact candidates are separate from the eight LVGL device rows per page.
+#define BLE_SCAN_MAX      32
 // The note under a filtered list, clear of the list's own padding.
 #define BLE_NOTE_W        440
 // How long one scan runs. The overlay stands for exactly this long.
@@ -54,6 +50,7 @@ static int  ble_device_count = 0;
 static bool ble_scanned = false;   // a scan has run since the switch went on
 static bool ble_failed  = false;   // the last scan could not start the stack
 static bool ble_show_all = false;  // the nameless ones too, until the next restart
+static int ble_page = 0;
 
 static lv_obj_t *scr_card = nullptr;
 
@@ -264,9 +261,12 @@ void buildBleDevicesScreen() {
     lv_obj_clear_flag(row, LV_OBJ_FLAG_CLICKABLE);
     rows++;
   }
-  for (int i = 0; i < ble_device_count; i++) {
-    if (!ble_show_all && !ble_devices[i].name[0]) continue;
-    if (rows >= BLE_LIST_MAX_ROWS) break;
+  const LabelPrinterConfig printer = labelPrinterLoadConfig();
+  const BleCandidatePage page = bleCandidatePage(ble_devices, ble_device_count,
+                                                 ble_show_all, ble_page, printer.address);
+  ble_page = page.number;
+  for (int p = 0; p < page.count; ++p) {
+    const int i = page.indices[p];
     if (!lvPoolHasRoomForRow()) { logSDf("BLE: list cut at %d rows", i); break; }
     char name[BLE_NAME_LEN];
     deviceName(ble_devices[i], name, sizeof(name));
@@ -291,6 +291,21 @@ void buildBleDevicesScreen() {
     rows++;
   }
 
+  if (page.pages > 1) {
+    char position[24];
+    snprintf(position, sizeof(position), "%d / %d", page.number + 1, page.pages);
+    for (int delta : {-1, 1}) {
+      const int next = page.number + delta;
+      if (next < 0 || next >= page.pages) continue;
+      lv_obj_t* button = makeListBtn(list, delta < 0 ? LV_SYMBOL_LEFT : LV_SYMBOL_RIGHT,
+                                    position, "");
+      lv_obj_add_event_cb(button, [](lv_event_t* e) {
+        ble_page = (int)(intptr_t)lv_event_get_user_data(e);
+        show_ble_devices_pending = true;
+      }, LV_EVENT_CLICKED, (void*)(intptr_t)next);
+    }
+  }
+
   // Under a filtered list, what it leaves out and how to get it back; the
   // way back to the filter once everything is shown.
   if (ble_scanned && unnamed > 0) {
@@ -310,6 +325,7 @@ void buildBleDevicesScreen() {
     lv_obj_add_event_cb(tog, [](lv_event_t *e) {
       (void)e;
       ble_show_all = !ble_show_all;
+      ble_page = 0;
       logSDf("BTN: BleDevices -> %s", ble_show_all ? "show all" : "named only");
       // A rebuild of the screen this button sits on: from the loop.
       show_ble_devices_pending = true;
@@ -325,10 +341,13 @@ void handleBleDevicesDeferredActions() {
     if (bleEnabled()) {
       closeBleDeviceCard();
       loadingOverlayShow(T(STR_BT_SCANNING));
-      const int n = bleScan(ble_devices, BLE_SCAN_MAX, BLE_SCAN_MS, loadingOverlayTick);
+      const LabelPrinterConfig printer = labelPrinterLoadConfig();
+      const int n = bleScan(ble_devices, BLE_SCAN_MAX, BLE_SCAN_MS, loadingOverlayTick,
+                            printer.address);
       loadingOverlayHide();
       ble_scanned = true;
       ble_device_count = n < 0 ? 0 : n;
+      ble_page = 0;
       ble_failed = n < 0;
       if (scr_ble_devices) {
         buildBleDevicesScreen();     // releases the previous instance itself

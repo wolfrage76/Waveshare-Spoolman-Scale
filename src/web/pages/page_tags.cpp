@@ -256,6 +256,8 @@ static String body() {
   h += F(",over:");    h += jsStr(T(STR_W_TAG_OVERWRITE));
   h += F(",match:");   h += jsStr(T(STR_W_TAG_MATCHES));
   h += F(",eraseq:");  h += jsStr(T(STR_W_TAG_ERASE_ASK));
+  h += F(",erase:");   h += jsStr(T(STR_W_TAG_ERASE));
+  h += F(",lnk:");     h += jsStr(T(STR_REMOTE_LINK_CONFIRM));
   h += F(",relink:");  h += jsStr(T(STR_W_TAG_RELINK));
   h += F(",queued:");  h += jsStr(T(STR_W_TAG_QUEUED));
   h += F(",nolist:");  h += jsStr(T(STR_W_TAG_NOLIST));
@@ -526,10 +528,12 @@ static String body() {
          // again with the mismatch accepted, no leaves it standing as refused.
          "else if(d.linkstate=='mismatch'){stat('bad',d.linkmsg,'');"
          "if(tgMisAsked!==d.linkmsg){tgMisAsked=d.linkmsg;"
-         "if(d.linkspool&&confirm(d.linkmsg)){"
-         "fetch('/api/tag/link',{method:'POST',body:d.linkspool+','+tgUid+',1'})"
+         // The poll goes on while the question stands; tgMisAsked keeps it
+         // from asking the same twice.
+         "if(d.linkspool){const sp=d.linkspool,u=tgUid;ask(d.linkmsg,M.lnk).then(ok=>{if(!ok)return;"
+         "fetch('/api/tag/link',{method:'POST',body:sp+','+u+',1'})"
          ".then(r=>r.json()).then(x=>{if(!x.ok)stat('bad',M.lbusy,'');})"
-         ".catch(()=>{});after();}}}"
+         ".catch(()=>{});after();});}}}"
          "else stat('','','');"
          "second(d);}).catch(()=>{});}"
          // One panel for whatever runs: a spinner and a moving bar while it
@@ -573,10 +577,10 @@ static String body() {
          "if(t.st==1&&!tgT2Tick)tgT2Tick=setTimeout(()=>{tgT2Tick=0;tgPoll();},1000);"
          "if(el.innerHTML!==h)el.innerHTML=h;}"
          "function after(){setTimeout(tgPoll,700);setTimeout(tgPoll,1500);setTimeout(tgPoll,4000);}"
-         "function eraseTag(){if(!confirm(M.eraseq))return;"
+         "function eraseTag(){ask(M.eraseq,M.erase,true).then(ok=>{if(!ok)return;"
          "fetch('/api/tag/write',{method:'POST',body:'0,2,0'})"
          ".then(r=>r.json()).then(d=>{if(d.ok)stat('busy',M.queued,M.keep,true);else stat('bad',M.twref,'');})"
-         ".catch(()=>{});after();}"
+         ".catch(()=>{});after();});}"
          "function writeTag(){const v=parseInt(document.getElementById('tg-id').value);"
          "if(!v){stat('bad',M.pickf,'');return;}"
          "const f=document.getElementById('tg-fmt').value;"
@@ -588,10 +592,10 @@ static String body() {
          // The spool already carries a different tag: say what linking does to
          // it before doing it. tgLinked comes from the preview of the picked
          // spool and is empty when that tag is the one on the reader.
-         "function linkTag(){const v=parseInt(document.getElementById('tg-id').value);"
-         "if(!v||!tgUid)return;"
-         "if(tgLinked&&!confirm((tgAdds?M.ladd:M.lask).replace('%d',v).replace('%s',tgLinked)))return;"
-         "fetch('/api/tag/link',{method:'POST',body:v+','+tgUid})"
+         "async function linkTag(){const v=parseInt(document.getElementById('tg-id').value);"
+         "if(!v||!tgUid)return;const u=tgUid;"
+         "if(tgLinked&&!await ask((tgAdds?M.ladd:M.lask).replace('%d',v).replace('%s',tgLinked),M.lnk))return;"
+         "fetch('/api/tag/link',{method:'POST',body:v+','+u})"
          ".then(r=>r.json()).then(d=>{if(!d.ok)stat('bad',M.lbusy,'');})"
          ".catch(()=>{});after();}"
          "document.addEventListener('DOMContentLoaded',()=>{"

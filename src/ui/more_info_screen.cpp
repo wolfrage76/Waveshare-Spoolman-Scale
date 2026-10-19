@@ -71,6 +71,7 @@ static int  status_pick_id            = 0;   // 1..6, or 0 for "cancelled"
 static bool unlink_pending  = false;
 static bool unlink_all      = false;
 static int  unlink_spool_id = 0;
+static bool unlink_erase_now = false;   // the erase was agreed to with the unlink
 static bool loc_patch_pending  = false;
 static char loc_patch_name[LOCATION_NAME_MAX] = "";   // empty: clear the location
 // The picker row is 370 px wide; its label keeps 10 px off each edge.
@@ -104,11 +105,19 @@ static void unlinkConfirmCb(lv_event_t *e) {
   lv_obj_t *btn = lv_event_get_target(e);
   unlink_all      = (bool)(intptr_t)lv_obj_get_user_data(btn);
   unlink_spool_id = sm_id;
+  unlink_erase_now = false;
   // Read out of the button before the popup goes. The popup is this button's
   // grandparent, so it is released asynchronously; the unlink itself runs from
   // the loop a pass later.
   releaseScreen(&s_unlink_popup);
   unlink_pending = true;
+}
+
+void requestSpoolUnlink(int spool_id, bool all, bool erase_now) {
+  unlink_all       = all;
+  unlink_spool_id  = spool_id;
+  unlink_erase_now = erase_now;
+  unlink_pending   = true;
 }
 
 static void runUnlink() {
@@ -167,8 +176,9 @@ static void runUnlink() {
   // data - the next reader to see it would still name a spool this one no
   // longer knows. Asked rather than done: the tag may be somebody else's, and
   // the question only appears when one is actually lying there with something
-  // on it.
-  requestTagEraseAsk();
+  // on it. "Release the tag" after an archive has asked it already.
+  if (unlink_erase_now) requestTagEraseNow();
+  else                  requestTagEraseAsk();
 
   // Close More Info and reset display - NFC will re-scan and find no match
   if (scr_more_info) { lv_obj_del(scr_more_info); scr_more_info = nullptr; }
@@ -708,9 +718,10 @@ static void applyPickedStatus(int status_id) {
 // the archive branch in particular, which tears this screen down first.
 static void onStatusPicked(int status_id) {
   if (status_id == FILAMAN_STATUS_ARCHIVED) {
-    // Archiving empties the spool and unlinks it, so the detail view behind
-    // the picker is about to be wrong either way. patchArchiveSpool() writes
-    // its result onto the main screen.
+    // Archiving empties the spool, so the detail view behind the picker is
+    // about to be wrong either way. patchArchiveSpool() writes its result onto
+    // the main screen. FilaMan keeps the tag on an archived spool; releasing
+    // it is the question that follows the archive.
     releaseScreen(&scr_more_info);
     status_archive_pending = true;
   } else if (status_id > 0 && status_id != sm_status_id) {

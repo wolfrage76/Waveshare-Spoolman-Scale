@@ -156,6 +156,8 @@ static const char APP_CSS[] PROGMEM =
       "details.card>summary::after{content:'';width:7px;height:7px;margin:-4px 4px 0 0;"
       "border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(45deg)}"
       "details.card[open]>summary::after{transform:rotate(-135deg);margin-top:4px}"
+      // A list's tail that folds away under one quiet line.
+      "details.more>summary{cursor:pointer;color:var(--ink-soft);padding:8px 0}"
       // Numbered steps, the number in a round badge instead of a list marker.
       ".steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:12px;margin-top:14px}"
       ".steps>li{counter-increment:s;display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:start}"
@@ -345,6 +347,21 @@ static const char APP_CSS[] PROGMEM =
       ".btab:hover{background:var(--quiet-hover)}"
       ".btab.on{background:var(--btn);color:var(--accent);"
       "border-color:var(--accent-line);opacity:1;cursor:default}"
+      // The question ask() puts, in the page's own look instead of the
+      // browser's box at the top of the window. Centred in the part of the
+      // page that is on screen: inside a backend's frame --vis-top and
+      // --vis-bot cut off what the host has scrolled away (app.js).
+      ".ask{display:none;position:fixed;left:0;right:0;top:var(--vis-top,0px);"
+      "bottom:var(--vis-bot,0px);z-index:100;align-items:center;justify-content:center;"
+      "padding:16px;background:var(--ground);"
+      "background:color-mix(in srgb,var(--ground) 80%,transparent)}"
+      ".ask.open{display:flex}"
+      ".ask .ac{width:100%;max-width:400px;max-height:100%;overflow:auto;"
+      "background:var(--surface);border:1px solid var(--line);border-radius:14px;"
+      "padding:24px}"
+      ".ask p{color:var(--ink);font-size:15px;line-height:1.5;white-space:pre-line;"
+      "overflow-wrap:anywhere;margin-bottom:20px}"
+      ".ask .inrow{justify-content:flex-end}"
 ;
 
 const char* webStaticVersion() { return FW_VERSION; }
@@ -363,7 +380,7 @@ const char* webStaticVersion() { return FW_VERSION; }
 // language it is set to, and this file is cached across both - so the strings
 // stay in the page and are assigned into WS.
 static const char APP_JS[] PROGMEM =
-  "var WS={ok:'OK',err:'Error'};\n"
+  "var WS={ok:'OK',err:'Error',yes:'OK',no:'Cancel'};\n"
 
   "function $(i){return document.getElementById(i);}\n"
 
@@ -407,6 +424,39 @@ static const char APP_JS[] PROGMEM =
   "function getJson(u){"
   "return fetch(u,{cache:'no-store'}).then(function(r){"
   "if(!r.ok)throw 0;return r.json();}).catch(function(){return null;});}\n"
+
+  // A yes/no question in the page's own look, resolving true or false.
+  // confirm() drew the browser's box at the top of the window, and inside a
+  // backend's frame it even named the scale's address as "an embedded page".
+  // yes names the action ("Delete"), WS.yes stands in; danger paints it red
+  // and puts the focus on Cancel. The text goes in as text: a tag's contents
+  // can be part of it. Built on the first question, so a page that never
+  // asks carries nothing; a second question answers the first with no.
+  "var ASK=null;\n"
+  "function ask(text,yes,danger){"
+  "if(ASK&&ASK.done)ASK.done(false);"
+  "if(!ASK){var b=document.createElement('div');b.className='ask';"
+  "b.innerHTML='<div class=\"ac\" role=\"dialog\" aria-modal=\"true\" aria-describedby=\"askt\">'"
+  "+'<p id=\"askt\"></p><div class=\"inrow\"><button type=\"button\" class=\"quiet\"></button>'"
+  "+'<button type=\"button\"></button></div></div>';"
+  "document.body.appendChild(b);var bs=b.querySelectorAll('button');"
+  "ASK={box:b,txt:b.querySelector('p'),no:bs[0],yes:bs[1],done:null};"
+  "b.addEventListener('click',function(e){if(!ASK.done)return;"
+  "if(e.target===b)ASK.done(false);else if(e.target===ASK.no)ASK.done(false);"
+  "else if(e.target===ASK.yes)ASK.done(true);});"
+  // Esc says no; Tab stays on the two buttons instead of wandering into
+  // the page behind the scrim.
+  "b.addEventListener('keydown',function(e){if(!ASK.done)return;"
+  "if(e.key==='Escape'){e.preventDefault();ASK.done(false);}"
+  "else if(e.key==='Tab'){e.preventDefault();"
+  "(document.activeElement===ASK.yes?ASK.no:ASK.yes).focus();}});}"
+  "var prev=document.activeElement;"
+  "ASK.txt.textContent=text;ASK.yes.textContent=yes||WS.yes;ASK.no.textContent=WS.no;"
+  "ASK.yes.className=danger?'danger':'';"
+  "ASK.box.classList.add('open');(danger?ASK.no:ASK.yes).focus();"
+  "return new Promise(function(res){ASK.done=function(v){ASK.done=null;"
+  "ASK.box.classList.remove('open');"
+  "if(prev&&prev.focus){try{prev.focus();}catch(x){}}res(v);};});}\n"
 
   // Own colours (ui/theme_custom.cpp), the same sums in the browser: TC.apply
   // for the preview on the design page, TC.page() for every page, run here in
@@ -471,14 +521,32 @@ static const char APP_JS[] PROGMEM =
   // colours laid over the new palette.
   "var SCH=(function(){var d=document.documentElement,own=d.getAttribute('data-theme'),"
   "mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: light)'):null,"
-  "framed=window.parent!==window,host=null;\n"
+  "framed=window.parent!==window,host=null,vt='',vb='';\n"
   "function mode(m){return m==='light'||m==='dark'?m:null;}\n"
+  // The part of the frame that is on screen. Both backends give the frame a
+  // fixed height inside a page that scrolls on its own, and neither tells
+  // the frame how far: a bar stuck to the frame's bottom edge, or a dialog
+  // centred in it, ended up half or wholly out of view. In a frame from
+  // another origin the browser intersects with the top window, through
+  // every frame in between, so an invisible full-frame box tells what is
+  // visible. 200 steps are a few pixels. Kept in vt/vb because apply()
+  // clears the style attribute these live in.
+  "function put(){if(vt){d.style.setProperty('--vis-top',vt);d.style.setProperty('--vis-bot',vb);}}\n"
+  "function vis(){if(!window.IntersectionObserver)return;"
+  "var s=document.createElement('div'),t=[],i;"
+  "s.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;visibility:hidden;pointer-events:none';"
+  "document.body.appendChild(s);for(i=0;i<=200;i++)t.push(i/200);"
+  "new IntersectionObserver(function(es){var e=es[es.length-1],r=e.intersectionRect;"
+  "if(!e.isIntersecting||r.height<=0)return;"
+  "vt=Math.max(0,Math.round(r.top))+'px';vb=Math.max(0,Math.round(window.innerHeight-r.bottom))+'px';"
+  "put();},{threshold:t}).observe(s);}\n"
+  "if(framed)document.addEventListener('DOMContentLoaded',vis);\n"
   "if(framed){d.classList.add('framed');try{host=mode(sessionStorage.getItem('host_mode'));}catch(x){}}\n"
   "function want(){var k=d.getAttribute('data-tdark'),l=d.getAttribute('data-tlight');if(!k||!l)return own;"
   "if(host)return host==='light'?l:k;"
   "return d.getAttribute('data-tsys')&&mq?(mq.matches?l:k):own;}\n"
   "function apply(){var t=want();if(d.getAttribute('data-theme')===t)return;"
-  "d.setAttribute('data-theme',t);d.removeAttribute('style');TC.page();}\n"
+  "d.setAttribute('data-theme',t);d.removeAttribute('style');put();TC.page();}\n"
   "function set(on,k,l){d.setAttribute('data-tdark',k);d.setAttribute('data-tlight',l);"
   "if(on)d.setAttribute('data-tsys','1');else d.removeAttribute('data-tsys');apply();}\n"
   "if(mq){if(mq.addEventListener)mq.addEventListener('change',apply);else if(mq.addListener)mq.addListener(apply);}\n"
