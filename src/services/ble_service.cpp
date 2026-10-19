@@ -1,4 +1,5 @@
 #include "services/ble_service.h"
+#include "services/ble_discovery.h"
 
 #include <Arduino.h>
 #include <NimBLEDevice.h>
@@ -127,9 +128,49 @@ static void copyDevice(BleDevice& out, const NimBLEAdvertisedDevice* dev) {
   snprintf(out.name, sizeof(out.name), "%s", dev->getName().c_str());
   snprintf(out.address, sizeof(out.address), "%s", dev->getAddress().toString().c_str());
   out.rssi = dev->getRSSI();
+  out.address_type = dev->getAddressType();
 }
 
-int bleScan(BleDevice* out, int capacity, uint32_t duration_ms, BleProgressFn progress) {
+// Static lifetime: a late host callback must never reach a returned stack frame.
+class DiscoveryCallbacks : public NimBLEScanCallbacks {
+ public:
+  void bind(BleCandidates* candidates) {
+    portENTER_CRITICAL(&mux_);
+    candidates_ = candidates;
+    reports_ = 0;
+    portEXIT_CRITICAL(&mux_);
+  }
+  void onResult(const NimBLEAdvertisedDevice* dev) override {
+    BleDevice record{};
+    copyDevice(record, dev);
+    portENTER_CRITICAL(&mux_);
+    if (candidates_) { candidates_->observe(record); ++reports_; }
+    portEXIT_CRITICAL(&mux_);
+  }
+  int count() {
+    portENTER_CRITICAL(&mux_);
+    const int n = candidates_ ? candidates_->count() : 0;
+    portEXIT_CRITICAL(&mux_);
+    return n;
+  }
+  unsigned finish(NimBLEScan* scan) {
+    scan->stop();
+    scan->setScanCallbacks(nullptr);
+    portENTER_CRITICAL(&mux_);
+    candidates_ = nullptr;
+    const unsigned reports = reports_;
+    portEXIT_CRITICAL(&mux_);
+    return reports;
+  }
+ private:
+  portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
+  BleCandidates* candidates_ = nullptr;
+  unsigned reports_ = 0;
+};
+static DiscoveryCallbacks discovery;
+
+int bleScan(BleDevice* out, int capacity, uint32_t duration_ms, BleProgressFn progress,
+            const char* preferred) {
   if (!out || capacity <= 0) return 0;
   if (!g_ble_enabled || s_stuck) return -1;
   if (!stackMayStart(progress)) return -1;
@@ -154,7 +195,11 @@ int bleScan(BleDevice* out, int capacity, uint32_t duration_ms, BleProgressFn pr
     // One report per device: a phone next door advertises ten times a
     // second, and every report is work on the host task.
     scan->setDuplicateFilter(true);
-    scan->setMaxResults(capacity > 255 ? 255 : (uint8_t)capacity);
+    BleCandidates candidates(out, capacity, preferred, false);
+    discovery.bind(&candidates);
+    scan->setScanCallbacks(&discovery);
+    // Deliver every result; do not fill NimBLE's cache with the first neighbours.
+    scan->setMaxResults(0);
 
     uint32_t elapsed = 0;
     while (elapsed < duration_ms) {
@@ -167,20 +212,9 @@ int bleScan(BleDevice* out, int capacity, uint32_t duration_ms, BleProgressFn pr
     }
     crumbSet("ble scan read");
 
-    // The results are read here on the loop task, not in a callback on the
-    // host task with its 4 kB of stack. Named devices first: they are the
-    // ones a person can recognise, and the list shows only them unless asked
-    // for all (ui/ble_devices_screen.cpp).
-    NimBLEScanResults results = scan->getResults();
-    for (int pass = 0; pass < 2 && count < capacity; pass++) {
-      for (int i = 0; i < results.getCount() && count < capacity; i++) {
-        const NimBLEAdvertisedDevice* dev = results.getDevice(i);
-        if (!dev) continue;
-        const bool named = dev->haveName() && dev->getName().length() > 0;
-        if ((pass == 0) != named) continue;
-        copyDevice(out[count++], dev);
-      }
-    }
+    const unsigned reports = discovery.finish(scan);
+    count = candidates.count();
+    logSDf("BLE: discovery %u reports, kept %d strongest (capacity %d)", reports, count, capacity);
     scan->clearResults();
   }
 
@@ -214,7 +248,6 @@ int bleScan(BleDevice* out, int capacity, uint32_t duration_ms, BleProgressFn pr
 // short slices, and gives up on a printer that is not in range.
 #define BLE_FIND_MS            4000
 #define BLE_FIND_SLICE_MS       500
-#define BLE_FIND_MAX_RESULTS     20
 #define BLE_CONNECT_TIMEOUT_MS 8000
 // Events of a failed connect may still be in flight when the client goes.
 #define BLE_SETTLE_MS           200
@@ -235,6 +268,36 @@ BleSessionPhase bleSessionPhase() { return s_phase; }
 void bleSessionBytes(size_t* sent, size_t* total) {
   if (sent)  *sent  = s_sent;
   if (total) *total = s_total;
+}
+
+static bool findPrinter(const char* address, BleDevice& found, BleProgressFn progress) {
+  crumbSet("ble find");
+  s_phase = BLE_PHASE_FIND;
+  s_sent = s_total = 0;
+  NimBLEScan* scan = NimBLEDevice::getScan();
+  if (!scan) return false;
+  BleCandidates target(&found, 1, address, true);
+  discovery.bind(&target);
+  scan->setActiveScan(false);
+  scan->setScanCallbacks(&discovery);
+  scan->setMaxResults(0);
+  uint32_t elapsed = 0;
+  while (!discovery.count() && elapsed < BLE_FIND_MS) {
+    scan->getResults(BLE_FIND_SLICE_MS, elapsed > 0);
+    elapsed += BLE_FIND_SLICE_MS;
+    if (progress) progress();
+  }
+  const unsigned reports = discovery.finish(scan);
+  scan->clearResults();
+  if (!target.count()) {
+    logSDf("BLE: %s not seen within %u ms (%u reports, target-only scan)",
+           address, (unsigned)BLE_FIND_MS, reports);
+    return false;
+  }
+  logSDf("BLE: %s seen, type=%u rssi=%d (%u reports)",
+         address, (unsigned)found.address_type, found.rssi, reports);
+  delay(BLE_SETTLE_MS);
+  return true;
 }
 
 static size_t chunkFor(uint16_t mtu) {
@@ -290,29 +353,10 @@ BleWriteResult bleWriteBlocks(const char* address, uint16_t service_uuid,
 
   // The device as it advertises right now, so the connect carries its
   // address type. A printer that is off or out of range ends here.
-  crumbSet("ble find");
-  s_phase = BLE_PHASE_FIND;
-  s_sent = s_total = 0;
-  const NimBLEAdvertisedDevice* found = nullptr;
+  BleDevice found{};
   NimBLEScan* scan = NimBLEDevice::getScan();
-  if (scan) {
-    scan->setActiveScan(false);
-    scan->setMaxResults(BLE_FIND_MAX_RESULTS);
-    uint32_t elapsed = 0;
-    while (!found && elapsed < BLE_FIND_MS) {
-      scan->getResults(BLE_FIND_SLICE_MS, elapsed > 0);
-      elapsed += BLE_FIND_SLICE_MS;
-      if (progress) progress();
-      const NimBLEScanResults results = scan->getResults();
-      for (int i = 0; i < results.getCount() && !found; i++) {
-        const NimBLEAdvertisedDevice* dev = results.getDevice(i);
-        if (dev && strcmp(dev->getAddress().toString().c_str(), address) == 0) found = dev;
-      }
-    }
-  }
-  if (!found) {
+  if (!findPrinter(address, found, progress)) {
     s_phase = BLE_PHASE_IDLE;
-    logSDf("BLE: %s not seen within %u ms", address, (unsigned)BLE_FIND_MS);
     if (scan) scan->clearResults();
     crumbSet("ble deinit");
     stackDown();
@@ -320,11 +364,7 @@ BleWriteResult bleWriteBlocks(const char* address, uint16_t service_uuid,
     logHeap("after deinit");
     return BLE_WRITE_CONNECT_FAILED;
   }
-  logSDf("BLE: %s seen, type=%u rssi=%d", address, (unsigned)found->getAddressType(), found->getRSSI());
-  // The scan is over before the connect: a connect while the controller
-  // still scans is refused, and a moment between the two does no harm.
-  scan->stop();
-  delay(BLE_SETTLE_MS);
+  const NimBLEAddress peer(found.address, found.address_type);
 
   BleWriteResult result = BLE_WRITE_FAILED;
   NimBLEClient* client = NimBLEDevice::createClient();
@@ -345,7 +385,7 @@ BleWriteResult bleWriteBlocks(const char* address, uint16_t service_uuid,
     if (progress) progress();
     bool connected = false;
     for (int attempt = 1; attempt <= BLE_CONNECT_TRIES && !connected; attempt++) {
-      connected = client->connect(found);
+      connected = client->connect(peer);
       if (connected) break;
       const int rc = client->getLastError();
       logSDf("BLE: connect to %s failed, rc=%d (try %d/%d)", address, rc, attempt, BLE_CONNECT_TRIES);
@@ -521,38 +561,7 @@ static bool talkStackUp(BleProgressFn progress) {
   return true;
 }
 
-// The device as it advertises right now, address type included, or nullptr.
-static const NimBLEAdvertisedDevice* talkFind(const char* address, BleProgressFn progress) {
-  crumbSet("ble find");
-  s_phase = BLE_PHASE_FIND;
-  s_sent = s_total = 0;
-  NimBLEScan* scan = NimBLEDevice::getScan();
-  if (!scan) return nullptr;
-  scan->setActiveScan(false);
-  scan->setMaxResults(BLE_FIND_MAX_RESULTS);
-  const NimBLEAdvertisedDevice* found = nullptr;
-  uint32_t elapsed = 0;
-  while (!found && elapsed < BLE_FIND_MS) {
-    scan->getResults(BLE_FIND_SLICE_MS, elapsed > 0);
-    elapsed += BLE_FIND_SLICE_MS;
-    if (progress) progress();
-    const NimBLEScanResults results = scan->getResults();
-    for (int i = 0; i < results.getCount() && !found; i++) {
-      const NimBLEAdvertisedDevice* dev = results.getDevice(i);
-      if (dev && strcmp(dev->getAddress().toString().c_str(), address) == 0) found = dev;
-    }
-  }
-  if (!found) {
-    logSDf("BLE: %s not seen within %u ms", address, (unsigned)BLE_FIND_MS);
-    return nullptr;
-  }
-  logSDf("BLE: %s seen, type=%u rssi=%d", address, (unsigned)found->getAddressType(), found->getRSSI());
-  scan->stop();
-  delay(BLE_SETTLE_MS);
-  return found;
-}
-
-static bool talkConnect(NimBLEClient* client, const NimBLEAdvertisedDevice* found,
+static bool talkConnect(NimBLEClient* client, const NimBLEAddress& found,
                         const char* address, BleProgressFn progress) {
   crumbSet("ble connect");
   s_phase = BLE_PHASE_CONNECT;
@@ -637,12 +646,12 @@ BleWriteResult bleTalkOpen(const char* address, const BleTalkEndpoint& ep, BlePr
   if (!address || !address[0] || !ep.service_uuid || s_talk_client) return BLE_WRITE_FAILED;
   if (!talkStackUp(progress)) return BLE_WRITE_INIT_FAILED;
 
-  const NimBLEAdvertisedDevice* found = talkFind(address, progress);
-  if (!found) { talkAbort(nullptr); return BLE_WRITE_CONNECT_FAILED; }
+  BleDevice found{};
+  if (!findPrinter(address, found, progress)) { talkAbort(nullptr); return BLE_WRITE_CONNECT_FAILED; }
   NimBLEClient* client = NimBLEDevice::createClient();
   if (!client) { logSD("BLE: no client"); talkAbort(nullptr); return BLE_WRITE_INIT_FAILED; }
   client->setConnectTimeout(BLE_CONNECT_TIMEOUT_MS);
-  if (!talkConnect(client, found, address, progress)) {
+  if (!talkConnect(client, NimBLEAddress(found.address, found.address_type), address, progress)) {
     talkAbort(client);
     return BLE_WRITE_CONNECT_FAILED;
   }

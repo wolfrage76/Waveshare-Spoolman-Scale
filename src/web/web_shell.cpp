@@ -136,7 +136,13 @@ String webShellAssets() {
   // page's own script runs at the end of the body.
   h += F("'><script src='/app.js?v=");
   h += webStaticVersion();
-  h += F("'></script>");
+  // The two buttons of ask(), on every page: app.js is cached across
+  // languages, so its own words stay English fallbacks.
+  h += F("'></script><script>WS.yes=");
+  h += jsStr(T(STR_CONFIRM));
+  h += F(";WS.no=");
+  h += jsStr(T(STR_CANCEL));
+  h += F(";</script>");
   return h;
 }
 
@@ -343,7 +349,10 @@ String webShellRestartUi() {
   h += F("<style>"
          // The page's own ground, nearly opaque: the scrim follows the
          // palette. A browser without color-mix() keeps the solid ground.
-         "#rbox{display:none;position:fixed;inset:0;background:var(--ground);"
+         // Top and bottom follow the part of a backend's frame on screen,
+         // like ask() (app.js).
+         "#rbox{display:none;position:fixed;left:0;right:0;top:var(--vis-top,0px);"
+         "bottom:var(--vis-bot,0px);background:var(--ground);"
          "background:color-mix(in srgb,var(--ground) 92%,transparent);z-index:99;"
          "align-items:center;justify-content:center}"
          "#rbox .rc{background:var(--surface);border:1px solid var(--line);border-radius:14px;"
@@ -362,6 +371,7 @@ String webShellRestartUi() {
   h += F("</div></div></div><script>"
          "const RT={ask:");
   h += jsStr(T(STR_W_RESTART_ASK));
+  h += F(",go:");     h += jsStr(T(STR_W_RESTART));
   h += F(",wait:");   h += jsStr(T(STR_W_RESTART_WAIT));
   h += F(",sd:");     h += jsStr(T(STR_W_RESTART_SD));
   h += F(",still:");  h += jsStr(T(STR_W_RESTART_LONG));
@@ -369,7 +379,7 @@ String webShellRestartUi() {
   h += F(",reload:"); h += jsStr(T(STR_W_RELOAD));
   h += F("};"
          "async function doRestart(){"
-         "if(!confirm(RT.ask))return;"
+         "if(!await ask(RT.ask,RT.go))return;"
          "let sd=false;"
          "try{sd=(await(await fetch('/status.json',{cache:'no-store'})).json()).sd}catch(e){}"
          "try{await fetch('/api/restart',{method:'POST'})}catch(e){}"

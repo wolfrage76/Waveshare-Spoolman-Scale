@@ -24,6 +24,7 @@ struct BleDevice {
   char   name[BLE_NAME_LEN];      // empty when the device did not say
   char   address[BLE_ADDR_LEN];
   int8_t rssi;
+  uint8_t address_type;
 };
 
 typedef void (*BleProgressFn)();
@@ -39,11 +40,12 @@ bool bleStackAvailable();
 void bleSetEnabled(bool on);
 
 // Blocking, from appLoop() only: starts the stack, scans for duration_ms,
-// copies what it saw into out (named devices first) and releases the stack
+// keeps the strongest candidates (preferred device first) and releases the stack
 // again. progress, when given, is called about once a second so an overlay
 // can keep moving. Returns the number of devices written, or -1 when the
 // stack could not be started; the SD log says why.
-int bleScan(BleDevice* out, int capacity, uint32_t duration_ms, BleProgressFn progress);
+int bleScan(BleDevice* out, int capacity, uint32_t duration_ms, BleProgressFn progress,
+            const char* preferred = "");
 
 // A write session to one characteristic of one device: start the stack,
 // connect, negotiate the MTU, write the blocks in order and in chunks the

@@ -17,13 +17,16 @@ static int dryingAlertLevel(const char* last_dried_local, const char* material);
 // ============================================================
 
 // ISO date "YYYY-MM-DD" -> local format based on g_date_fmt:
-//   0 = DD.MM.YYYY  (German style)
-//   1 = YYYY-MM-DD  (ISO)
+//   DATE_FMT_DMY = DD.MM.YYYY  (German style)
+//   DATE_FMT_ISO = YYYY-MM-DD  (ISO)
+//   DATE_FMT_US  = MM/DD/YYYY
 void isoToLocal(const char* iso, char* out, size_t len) {
   if (strlen(iso) >= 10 && iso[4] == '-' && iso[7] == '-') {
-    if (g_date_fmt == 1) {
+    if (g_date_fmt == DATE_FMT_ISO) {
       // ISO belassen
       snprintf(out, len, "%.10s", iso);
+    } else if (g_date_fmt == DATE_FMT_US) {
+      snprintf(out, len, "%.2s/%.2s/%.4s", iso+5, iso+8, iso);
     } else {
       // DD.MM.YYYY
       snprintf(out, len, "%.2s.%.2s.%.4s", iso+8, iso+5, iso);
@@ -36,14 +39,15 @@ void isoToLocal(const char* iso, char* out, size_t len) {
 // Legacy alias so all existing calls continue to work
 void isoToDe(const char* iso, char* out, size_t len) { isoToLocal(iso, out, len); }
 
-// Days since a localized date until today
-// Supports DD.MM.YYYY (fmt 0) and YYYY-MM-DD (fmt 1)
+// Days since a date in the format isoToLocal() wrote it, until today
 int daysSince(const char* local_date) {
   if (!local_date || strlen(local_date) < 10) return -1;
   int day, month, year;
-  if (g_date_fmt == 1) {
+  if (g_date_fmt == DATE_FMT_ISO) {
     // YYYY-MM-DD
     if (sscanf(local_date, "%d-%d-%d", &year, &month, &day) != 3) return -1;
+  } else if (g_date_fmt == DATE_FMT_US) {
+    if (sscanf(local_date, "%d/%d/%d", &month, &day, &year) != 3) return -1;
   } else {
     // DD.MM.YYYY
     if (sscanf(local_date, "%d.%d.%d", &day, &month, &year) != 3) return -1;

@@ -366,6 +366,10 @@ static String body() {
   h += jsStr(T(STR_PRN_NONE));
   h += F(",unnamed:");
   h += jsStr(T(STR_BT_UNNAMED));
+  h += F(",showAll:");
+  h += jsStr(T(STR_BT_SHOW_ALL_FMT));
+  h += F(",named:");
+  h += jsStr(T(STR_BT_SHOW_NAMED));
   h += F(",asPrinter:");
   h += jsStr(T(STR_BT_CARD_USE_PRINTER));
   h += F(",printer:");
@@ -383,12 +387,15 @@ static String body() {
   h += F(",restarting:");
   h += jsStr(T(STR_W_RESTARTING));
   h += F("};"
-         "let timer=0;"
+         "let timer=0,allOpen=false;"
          // Dots to the millimetre of the model in use and the offset's range,
          // from the state.
          "let K=8,R={min:0,max:0};"
          // The device rows, from the JSON: createElement and textContent,
          // never markup, because a name is whatever the device advertised.
+         // Named devices and the printer stand open; the nameless ones (phones,
+         // beacons, most of what a scan sees) fold away under one line, as the
+         // display's list does (ui/ble_devices_screen.cpp).
          "function rows(d){"
          "const box=$('dv');box.textContent='';"
          "if(!d.ble){box.textContent=P.off;return;}"
@@ -396,7 +403,15 @@ static String body() {
          "if(d.scanning){box.textContent=P.scanning;return;}"
          "if(!d.scanned){box.textContent=P.notYet;return;}"
          "if(!d.devices.length){box.textContent=P.noneFound;return;}"
-         "d.devices.forEach(function(x){"
+         "const rest=d.devices.filter(function(x){return !x.name&&!x.printer;});"
+         "d.devices.filter(function(x){return x.name||x.printer;}).forEach(function(x){box.appendChild(row(x));});"
+         "if(!rest.length)return;"
+         "const m=document.createElement('details');m.className='more';m.open=allOpen;"
+         "const s=document.createElement('summary');"
+         "const say=function(){s.textContent=m.open?P.named:P.showAll.replace('%d',rest.length);};say();"
+         "m.appendChild(s);m.addEventListener('toggle',function(){allOpen=m.open;say();});"
+         "rest.forEach(function(x){m.appendChild(row(x));});box.appendChild(m);}"
+         "function row(x){"
          "const r=document.createElement('div');r.className='row';"
          "const k=document.createElement('span');k.className='k';"
          "k.textContent=(x.name||P.unnamed)+'  '+x.address+'  '+x.rssi+' dBm';"
@@ -409,7 +424,7 @@ static String body() {
          "b.addEventListener('click',function(){"
          "postFlash('/api/printer/device',x.address,'dv-s',4000).then(load);});"
          "v.appendChild(b);}"
-         "r.appendChild(v);box.appendChild(r);});}"
+         "r.appendChild(v);return r;}"
          "function paint(d){"
          "$('bl').checked=d.ble;"
          "$('pd').textContent=d.printer.configured?((d.printer.name||P.unnamed)+'  '+d.printer.address):P.none;"

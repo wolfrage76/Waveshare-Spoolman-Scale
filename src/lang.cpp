@@ -7,7 +7,7 @@
 #include "lang.h"
 
 Lang   g_lang     = LANG_EN;
-uint8_t g_date_fmt = 0;  // 0=DD.MM.YYYY  1=YYYY-MM-DD
+uint8_t g_date_fmt = DATE_FMT_DMY;
 
 // Order MUST exactly match the StringID enum in lang.h!
 // Format: { "Deutsch", "English", "Francais" }
@@ -3062,9 +3062,9 @@ const char* const STRINGS[][3] = {
     "The tag does not match spool #%d.\nTag: %s\nSpool: %s\nLink anyway?",
     "Le tag ne correspond pas à la bobine #%d.\nTag : %s\nBobine : %s\nLier quand même ?" },  // STR_W_TL_MISMATCH
   { "Anzeige: Spule #%d", "Showing spool #%d", "Vue : bobine #%d" },  // STR_TAG_VIEW_SPOOL
-  // Web: colour scheme
-  { "Design",     "Theme",         "Thème" },  // STR_W_NAV_THEME
-  { "Farbschema", "Colour scheme", "Palette de couleurs" },  // STR_W_C_THEME
+  // Web: theme
+  { "Theme", "Theme", "Thème" },  // STR_W_NAV_THEME
+  { "Theme", "Theme", "Thème" },  // STR_W_C_THEME
   { "Gilt für die Waage und diese Weboberfläche. Die Waage startet dafür neu, alle Einstellungen bleiben erhalten.",
     "Applies to the scale and to this web interface. The scale restarts for it; every setting is kept.",
     "S'applique à la balance et à cette interface web. La balance redémarre pour cela, tous les réglages sont conservés." },  // STR_W_THEME_HINT
@@ -3094,11 +3094,11 @@ const char* const STRINGS[][3] = {
     "Les couleurs suivent le backend" },  // STR_W_THEME_FOLLOW
   { "Spoolman, FilaMan und BamBuddy bringen je eigene Farben mit. Hell oder dunkel kommt aus deiner Wahl oben.", "Spoolman, FilaMan and BamBuddy each bring their own colours. Light or dark comes from your choice above.",
     "Spoolman, FilaMan et BamBuddy apportent chacun leurs propres couleurs. Clair ou sombre suit votre choix ci-dessus." },  // STR_W_THEME_FOLLOW_HINT
-  { "Schema nach dem Neustart", "Scheme after restart",
+  { "Theme nach dem Neustart", "Theme after restart",
     "Thème après redémarrage" },  // STR_W_THEME_AFTER
   { "Eigene Farben", "Your own colours",
     "Vos couleurs" },  // STR_W_THEME_OWN_H
-  { "Auf dem gewählten Schema. Jede Farbe behält ihre Helligkeit, Text bleibt so gut lesbar wie vorher.", "On top of the scheme. Every colour keeps its brightness, so text stays as readable as before.",
+  { "Auf dem gewählten Theme. Jede Farbe behält ihre Helligkeit, Text bleibt so gut lesbar wie vorher.", "On top of the theme. Every colour keeps its brightness, so text stays as readable as before.",
     "Par-dessus le thème. Chaque couleur garde sa luminosité, le texte reste aussi lisible qu'avant." },  // STR_W_THEME_OWN_HINT
   { "Akzent", "Accent",
     "Accent" },  // STR_W_THEME_ACCENT
@@ -3108,7 +3108,7 @@ const char* const STRINGS[][3] = {
     "Teinte de fond" },  // STR_W_THEME_TONE
   { "Hintergrund, Flächen, Linien und die graue Schrift.", "Background, surfaces, lines and the grey text.",
     "Fond, surfaces, lignes et texte gris." },  // STR_W_THEME_TONE_HINT
-  { "Vom Schema", "Scheme's own",
+  { "Vom Theme", "Theme's own",
     "Celle du thème" },  // STR_W_THEME_SCHEME_OWN
   { "Eigene Farbe", "Own colour",
     "Couleur libre" },  // STR_W_THEME_OWN_COLOUR
@@ -3116,11 +3116,11 @@ const char* const STRINGS[][3] = {
     "Teinte" },  // STR_W_THEME_HUE
   { "Stärke", "Strength",
     "Intensité" },  // STR_W_THEME_STRENGTH
-  { "Links grau, in der Mitte wie das Schema, rechts kräftiger.", "Grey on the left, as the scheme in the middle, stronger on the right.",
+  { "Links grau, in der Mitte wie das Theme, rechts kräftiger.", "Grey on the left, as the theme in the middle, stronger on the right.",
     "Gris à gauche, comme le thème au milieu, plus soutenu à droite." },  // STR_W_THEME_STRENGTH_HINT
   { "Vorschau", "Preview",
     "Aperçu" },  // STR_W_THEME_PREVIEW
-  { "Zurück zu den Farben des Schemas", "Back to the scheme's colours",
+  { "Zurück zu den Farben des Themes", "Back to the theme's colours",
     "Revenir aux couleurs du thème" },  // STR_W_THEME_RESET
   { "auf dem Hintergrund", "on the background",
     "sur le fond" },  // STR_W_THEME_ON_BG
@@ -3144,8 +3144,8 @@ const char* const STRINGS[][3] = {
     "Vert" },  // STR_W_COL_GREEN
   { "Sand", "Sand",
     "Sable" },  // STR_W_COL_SAND
-  { "Helle Schemata: Beim Scrollen und beim Wechsel zwischen Screens zeigt das Display sichtbare Schlieren, weil es jedes Bild in Streifen aufbaut. Dunkle Schemata wirken dabei ruhiger.",
-    "Light schemes: while scrolling and when screens change, the display shows visible smearing, because it builds every frame in strips. Dark schemes look calmer there.",
+  { "Helle Themes: Beim Scrollen und beim Wechsel zwischen Screens zeigt das Display sichtbare Schlieren, weil es jedes Bild in Streifen aufbaut. Dunkle Themes wirken dabei ruhiger.",
+    "Light themes: while scrolling and when screens change, the display shows visible smearing, because it builds every frame in strips. Dark themes look calmer there.",
     "Thèmes clairs : pendant le défilement et lors des changements d'écran, l'affichage laisse des traînées visibles, car il construit chaque image par bandes. Les thèmes sombres paraissent plus calmes." },  // STR_W_THEME_LIGHT_NOTE
   { "Tag gehört zu Filament #%d", "Tag belongs to filament #%d",
     "Tag lié au filament #%d" },  // STR_TAG_ON_FILAMENT
@@ -3632,10 +3632,28 @@ const char* const STRINGS[][3] = {
   { "Spoolman hinter BamBuddy ist von der Waage aus nicht erreichbar:\n%s",
     "Spoolman behind BamBuddy cannot be reached from the scale:\n%s",
     "Spoolman derrière BamBuddy est injoignable depuis la balance :\n%s" },  // STR_DBPICK_SM_UNREACHABLE
+  { "DD.MM.YYYY",
+    "DD.MM.YYYY",
+    "DD.MM.YYYY" },  // STR_DATE_FMT_DMY
+  { "YYYY-MM-DD",
+    "YYYY-MM-DD",
+    "YYYY-MM-DD" },  // STR_DATE_FMT_ISO
+  { "MM/DD/YYYY",
+    "MM/DD/YYYY",
+    "MM/DD/YYYY" },  // STR_DATE_FMT_US
+  { "passt gedreht", "fits rotated", "compatible après rotation" },  // STR_W_L_SRC_ROTATED
+  // Releasing the tags after a spool is archived
+  { "Tag freigeben?\nAlle Tags werden von der Spule getrennt.",
+    "Release the tag?\nAll tags of this spool are unlinked.",
+    "Libérer le tag ?\nTous les tags sont dissociés." },  // STR_FREE_TAG_ASK
+  { "Der aufliegende Tag wird gelöscht.",
+    "The tag on the reader is erased.",
+    "Le tag posé est effacé." },  // STR_FREE_TAG_ERASE_LINE
+  { "Freigeben", "Release", "Libérer" },  // STR_BTN_FREE_TAG
 
   // The AMS board: its title, a name that stays as it is in every language,
   // and the line in the middle of the page until the server has answered
-  { "AMS View", "AMS View", "AMS View" },  // STR_AMSB_TITLE
+  { "AMS View",             "AMS View",           "AMS View" },  // STR_AMSB_TITLE
   { "Verbinde mit FilaMan", "Linking to FilaMan", "Connexion à FilaMan" },  // STR_AMSB_LINKING
 };
 

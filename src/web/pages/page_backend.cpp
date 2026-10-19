@@ -391,11 +391,11 @@ static String body() {
          "document.querySelectorAll('.btab').forEach(b=>{"
          "b.addEventListener('click',()=>{"
          "const n=b.textContent;"
-         "if(!confirm(M.swap.replace('%s',n)))return;"
+         "ask(M.swap.replace('%s',n)).then(ok=>{if(!ok)return;"
          "flash('bm-s',M.test,false);"
          "post('/api/backend/mode',b.dataset.m).then(r=>{"
          "if(!r.ok){flash('bm-s',WS.err,true,4000);return;}"
-         "setTimeout(()=>location.reload(),1200);});});});"
+         "setTimeout(()=>location.reload(),1200);});});});});"
 
          "function load(){getJson('/api/settings').then(d=>{"
          "const c=$('os');if(!c)return;c.textContent='';"

@@ -11,7 +11,8 @@
 #define PATCH_WEIGHT_NO_TARGET  (-1)
 #define PATCH_WEIGHT_ASKING     (-2)
 int patchSpoolmanWeight(float remaining, bool skip_cap_check = false);
-void patchArchiveSpool();
+// True once the server has the spool archived; the tag question follows only then.
+bool patchArchiveSpool();
 // Links `uuid` to a spool, or unlinks it when `uuid` is empty.
 //
 // field_values is what the spool currently holds in each tag field, indexed by
