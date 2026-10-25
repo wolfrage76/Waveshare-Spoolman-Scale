@@ -1,5 +1,6 @@
 #include "tag_field.h"
 
+#include <Arduino.h>
 #include <string.h>
 
 // backend_api.h pulls in ArduinoJson, which must be parsed before lang.h
@@ -150,8 +151,8 @@ void tagFieldAutoSelect() {
     prefsPutBool(TAG_NATIVE_MOVE_KEY, true);
     g_tag_field = TAG_FIELD_NATIVE;
     prefsPutUChar("tag_field", TAG_FIELD_NATIVE);
-    g_osm_tag = true;
-    prefsPutBool(OSM_TAG_KEY, true);
+    g_tag_comp = TAG_COMP_TAG;
+    prefsPutUChar(TAG_COMP_KEY, TAG_COMP_TAG);
     logSD("Tag field: server has native tags, moved from extra.tag to them; "
           "extra.tag stays and is still written for OpenSpoolman");
     return;
@@ -170,10 +171,11 @@ void tagFieldAutoSelect() {
   // Whether OpenSpoolman gets its extra.tag, decided the first time the
   // native tags are in force: on when the field is already there, which means
   // some tool already reads it; off on a server that never had it.
-  if (g_tag_field == TAG_FIELD_NATIVE && has_native && !prefsHasKey(OSM_TAG_KEY)) {
-    g_osm_tag = backendHasExtraField(tagFieldSpec(TAG_FIELD_TAG).key);
-    prefsPutBool(OSM_TAG_KEY, g_osm_tag);
-    logSDf("Tag field: extra.tag for OpenSpoolman %s", g_osm_tag ? "on (field exists)" : "off");
+  if (g_tag_field == TAG_FIELD_NATIVE && has_native && !prefsHasKey(TAG_COMP_KEY)) {
+    const bool has_tag = backendHasExtraField(tagFieldSpec(TAG_FIELD_TAG).key);
+    g_tag_comp = has_tag ? TAG_COMP_TAG : TAG_COMP_OFF;
+    prefsPutUChar(TAG_COMP_KEY, g_tag_comp);
+    logSDf("Tag field: extra.tag for OpenSpoolman %s", has_tag ? "on (field exists)" : "off");
   }
 }
 
@@ -225,4 +227,46 @@ const char* tagNativeUid(const char* scanned) {
 
 const char* tagFormatName(const char* scanned) {
   return tagIsBambu(scanned) ? "bambu" : "ntag";
+}
+
+// ============================================================
+//  COMPANION FIELD
+// ============================================================
+
+int tagCompanionField() {
+  if (!tagFieldIsNative()) return -1;
+  switch (g_tag_comp) {
+    case TAG_COMP_TAG:   return TAG_FIELD_TAG;
+    case TAG_COMP_NFCID: return TAG_FIELD_NFC_ID;
+    default:             return -1;
+  }
+}
+
+bool tagCompanionValue(const char* scanned, char* out, size_t out_len) {
+  if (!out || out_len == 0) return false;
+  out[0] = '\0';
+  const int field = tagCompanionField();
+  if (field < 0 || !scanned || !scanned[0]) return false;
+  // OpenSpoolman only ever looks for a tray uuid, so another tag has no
+  // business in extra.tag. nfc_id takes what the tag field nfc_id would.
+  if (field == TAG_FIELD_TAG && !tagIsBambu(scanned)) return false;
+  tagFieldFormat(tagFieldSpec((uint8_t)field), scanned, out, out_len);
+  return out[0] != '\0';
+}
+
+void tagCompanionMigrate() {
+  if (prefsHasKey(TAG_COMP_KEY) || !prefsHasKey(OSM_TAG_KEY)) return;
+  g_tag_comp = prefsGetBool(OSM_TAG_KEY, false) ? TAG_COMP_TAG : TAG_COMP_OFF;
+  prefsPutUChar(TAG_COMP_KEY, g_tag_comp);
+  // Serial only: this runs before the log has anywhere to go.
+  Serial.printf("Tag companion: taken over from %s = %u\n", OSM_TAG_KEY,
+                (unsigned)g_tag_comp);
+}
+
+void tagCompanionNoteSourceChange(uint8_t from, uint8_t to) {
+  if (from != TAG_FIELD_NFC_ID || to != TAG_FIELD_NATIVE) return;
+  if (g_tag_comp != TAG_COMP_OFF) return;
+  g_tag_comp = TAG_COMP_NFCID;
+  prefsPutUChar(TAG_COMP_KEY, TAG_COMP_NFCID);
+  logSD("Tag companion: nfc_id was the tag field, kept writing it beside the native tags");
 }

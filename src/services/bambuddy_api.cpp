@@ -425,6 +425,12 @@ static void mapSpool(JsonObjectConst src, JsonObject dst) {
   // The maker's article number, Spoolman's article_number.
   const char* article = src["material_number"] | "";
   if (article[0]) f["article_number"] = article;
+  // The nozzle range, for the label: Spoolman's one temperature takes the
+  // upper end, the lower one a name of the scale's own.
+  const int t_min = src["nozzle_temp_min"] | 0;
+  const int t_max = src["nozzle_temp_max"] | 0;
+  if (t_max > 0) f["settings_extruder_temp"] = t_max;
+  if (t_min > 0 && t_min < t_max) f["x_extruder_temp_min"] = t_min;
 
   // Spoolman shows one name. BamBuddy keeps the three parts apart, so they are
   // joined in the order they are printed on the spool itself: "PETG HF
@@ -529,6 +535,23 @@ bool bbGetVersion(const char* base_url, const char* api_key,
   strncpy(out_version, v, out_size - 1);
   out_version[out_size - 1] = '\0';
   return true;
+}
+
+int bbGetExternalUrl(const char* base_url, const char* api_key,
+                     char* out, size_t out_size, uint32_t timeout_ms) {
+  if (!out || out_size == 0) return -1;
+  out[0] = '\0';
+  if (!hasBaseUrl(base_url)) return -1;
+
+  char url[160];
+  snprintf(url, sizeof(url), "%s/api/v1/settings/", base_url);
+  // The settings are a long list; only the one field is kept.
+  JsonDocument filter;
+  filter["external_url"] = true;
+  JsonDocument doc;
+  const int code = getJson(url, api_key, doc, timeout_ms, nullptr, &filter);
+  if (code == 200) snprintf(out, out_size, "%s", doc["external_url"] | "");
+  return code;
 }
 
 int bbGetSpoolRawJson(const char* base_url, const char* api_key, int spool_id,

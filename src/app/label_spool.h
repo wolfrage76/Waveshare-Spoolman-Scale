@@ -9,8 +9,8 @@
 //  in the globals. The display forgets a spool as soon as it
 //  leaves the pad; the label editor in the browser shows the last
 //  one scanned, so a copy is kept here when the display lets go.
-//  The dates are not part of the scan: they are asked of the
-//  backend once per spool and kept with the copy.
+//  The dates and the temperatures are not part of the scan: they
+//  are asked of the backend once per spool and kept with the copy.
 // ============================================================
 
 // The spool on the pad as the backend named it. False when none was found.
@@ -33,10 +33,12 @@ bool labelSpoolLast(SpoolLabelData* out);
 bool labelSpoolDatesKnown();
 
 // Fills a spool's dates into `d`: from the last spool's copy where it knows
-// them, else from the backend, and only on an answer. Makes an HTTP request:
+// them, else from the backend, and only on an answer. Asks for the QR code's
+// address as well when it is due (labelLinkRefresh()). Makes an HTTP request:
 // from the loop only, never from a handler.
 void labelSpoolFetchDates(SpoolLabelData* d);
 
 // From the loop: starts the fetch of the dates the browser's preview is
-// waiting for on a task of its own, and takes its answer on a later pass.
+// waiting for on a task of its own, with the QR code's address when due, and
+// takes the answer on a later pass.
 void labelSpoolTick();

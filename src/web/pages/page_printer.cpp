@@ -15,6 +15,7 @@
 #include <Arduino.h>
 #include <WebServer.h>
 
+#include "app_config.h"
 #include "app/deferred_actions.h"
 #include "hardware/sd_logger.h"
 #include "services/ble_service.h"
@@ -22,6 +23,7 @@
 #include "ui/ble_devices_screen.h"
 #include "ui/printer_screen.h"
 #include "web/web_access.h"
+#include "web/web_printer_cards.h"
 #include "web/web_shell.h"
 // Last on purpose: T() is a macro and ArduinoJson uses T as a template
 // parameter, so lang.h has to come after anything that pulls it in.
@@ -40,6 +42,36 @@ static String jsonText(const char* s) {
     else out += c;
   }
   return out;
+}
+
+// The line under the stock, worded for the printer at hand: none yet,
+// another model, or one of ours, the M220 without a ribbon and the M2 with
+// one. The script switches them as the printer changes; the numbers are its
+// data-v.
+enum RecVariant { REC_NONE = 0, REC_OTHER = 1, REC_LABELS = 2, REC_RIBBON = 3 };
+struct RecText { int text, button; const char* anchor; };
+static const RecText REC_TEXTS[] = {
+  { STR_W_P_REC_NONE_TEXT,  STR_W_P_REC_NONE_BTN,   "" },
+  { STR_W_P_REC_OTHER_TEXT, STR_W_P_REC_OTHER_BTN,  "" },
+  { STR_W_P_REC_M220_TEXT,  STR_W_P_REC_LABELS_BTN, "#phomemo-m220" },
+  { STR_W_P_REC_M2_TEXT,    STR_W_P_REC_RIBBON_BTN, "#niimbot-m2" },
+};
+
+// The two pictures of the page, in the stroke of the shared look.
+static const char ICON_BLUETOOTH[] PROGMEM =
+  "<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+  "stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'>"
+  "<path d='M7 7l10 10-5 5V2l5 5L7 17'/></svg>";
+static const char ICON_PRINTER[] PROGMEM =
+  "<svg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+  "stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'>"
+  "<path d='M6 9V3h12v6'/><rect x='3' y='9' width='18' height='8' rx='2'/>"
+  "<path d='M7 14h10v7H7z'/></svg>";
+
+static RecVariant recVariant(const LabelPrinterConfig& c) {
+  if (!labelPrinterConfigured(c)) return REC_NONE;
+  if (!labelPrinterRecommended(c.model)) return REC_OTHER;
+  return labelPrinterProfile(c.model).direct_thermal ? REC_LABELS : REC_RIBBON;
 }
 
 static String stateJson() {
@@ -77,6 +109,10 @@ static String stateJson() {
   j += labelPrinterConfigured(c) ? F("true") : F("false");
   j += F(",\"model\":");
   j += String((int)c.model);
+  j += F(",\"thermal\":");
+  j += labelPrinterProfile(c.model).direct_thermal ? F("true") : F("false");
+  j += F(",\"rec\":");
+  j += String((int)recVariant(c));
   j += F(",\"name\":\"");
   j += jsonText(c.name);
   j += F("\",\"address\":\"");
@@ -110,205 +146,158 @@ static String stateJson() {
   return j;
 }
 
-// Which printers the scale can drive: a row per brand, a pill per model,
-// green where someone has printed on one. Built from the profiles, so the
-// card and the model list never disagree. It was a row per model, which
-// repeated "experimental, untested" five times and outgrew the Bluetooth
-// card next to it with every model added.
-static void supportedCard(String& h) {
-  h += F("<style>"
-         ".pr-m{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}"
-         ".pill.ex{color:var(--ink-soft);border-color:var(--line);background:var(--surface-2)}"
-         ".pr-leg{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 8px}"
-         "</style><div class='card'><h2>");
-  h += T(STR_W_P_SUPPORTED);
-  h += F("</h2>");
-  for (int i = 0; i < LABEL_PRINTER_MODEL_COUNT; i++) {
-    const char* brand = labelPrinterProfile(LABEL_PRINTER_MODELS[i]).brand;
-    bool seen = false;
-    for (int j = 0; j < i && !seen; j++)
-      seen = strcmp(labelPrinterProfile(LABEL_PRINTER_MODELS[j]).brand, brand) == 0;
-    if (seen) continue;
-    h += F("<div class='row'><span class='k'>");
-    h += brand;
-    h += F("</span><span class='v pr-m'>");
-    for (int j = i; j < LABEL_PRINTER_MODEL_COUNT; j++) {
-      const LabelPrinterProfile& p = labelPrinterProfile(LABEL_PRINTER_MODELS[j]);
-      if (strcmp(p.brand, brand) != 0) continue;
-      h += p.experimental ? F("<span class='pill ex'>") : F("<span class='pill ok'>");
-      h += p.name;
-      h += F("</span>");
-    }
-    h += F("</span></div>");
-  }
-  h += F("<div class='pr-leg'><span class='pill ok'>");
-  h += T(STR_W_P_TESTED);
-  h += F("</span><span class='pill ex'>");
-  h += T(STR_W_P_EXPERIMENTAL);
-  h += F("</span></div><span class='hint'>");
-  h += T(STR_W_P_SUPPORTED_HINT);
-  // The models that print through a ribbon, named once in the hint. In
-  // brackets rather than after a colon, which French spaces differently.
-  bool ribbon = false;
-  for (int i = 0; i < LABEL_PRINTER_MODEL_COUNT; i++) {
-    const LabelPrinterProfile& p = labelPrinterProfile(LABEL_PRINTER_MODELS[i]);
-    if (p.direct_thermal) continue;
-    h += ribbon ? F(", ") : F(" ");
-    if (!ribbon) { h += T(STR_PRN_RIBBON_SHORT); h += F(" ("); }
-    h += p.brand; h += ' '; h += p.name;
-    ribbon = true;
-  }
-  if (ribbon) h += F(").");
-  h += ' ';
-  h += T(STR_PRN_HEAT_SHORT);
-  h += F("</span></div>");
+// The manual's printers page. The manual has German and English; French
+// readers get the English page.
+static const __FlashStringHelper* docsPrintersUrl() {
+  return g_lang == LANG_DE ? F(DOCS_URL "de/use/printers/") : F(DOCS_URL "use/printers/");
 }
 
-static String body() {
-  const LabelPrinterConfig c = labelPrinterLoadConfig();
-  String h;
-  h.reserve(9000);
+// The way to the manual's page of recommended printers and their labels,
+// where the shop links live: never in the firmware (Nikolai, 21.10.2026).
+static void recommendRow(String& h) {
+  const RecVariant shown = recVariant(labelPrinterLoadConfig());
+  for (int v = 0; v < (int)(sizeof(REC_TEXTS) / sizeof(REC_TEXTS[0])); v++) {
+    const RecText& r = REC_TEXTS[v];
+    h += F("<div class='reclink pr-rec' data-v='");
+    h += String(v);
+    h += v == shown ? F("'>") : F("' style='display:none'>");
+    h += F("<span>");
+    h += T(r.text);
+    h += F("</span><a href='");
+    h += docsPrintersUrl();
+    h += r.anchor;
+    h += F("' target='_blank' rel='noopener'>");
+    h += T(r.button);
+    h += F(" &rarr;</a></div>");
+  }
+}
 
-  // ---- the master switch ---------------------------------------------------
-  h += F("<div class='grid'><div class='card'><h2>");
+// Under the models: more to come, and the one limit no driver can lift. The
+// scale's ESP32-S3 has no Classic Bluetooth radio, so a printer that only
+// speaks Classic (every Brother P-touch) can never be among the cards.
+static void supportedHint(String& h) {
+  h += F("<span class='hint pr-foot'>");
+  h += T(STR_W_P_SUPPORTED_HINT);
+  h += ' ';
+  h += T(STR_W_P_BLE_ONLY);
+  h += F(" <a href='");
+  h += docsPrintersUrl();
+  h += F("#printer-needs' target='_blank' rel='noopener'>");
+  h += T(STR_W_P_NEEDS_LINK);
+  h += F(" &rarr;</a></span>");
+}
+
+// The master switch as a bar across the page. While the switch is on and the
+// stack cannot start, the bar turns to a warning and offers the restart: the
+// touchscreen asks for it in a popup, the page asks here.
+static void bluetoothBar(String& h) {
+  const bool on = bleEnabled();
+  const bool need = on && !bleStackAvailable();
+  h += F("<div class='btbar");
+  if (on) h += F(" live");
+  if (need) h += F(" need");
+  h += F("' id='bb'><div class='ic'>");
+  h += FPSTR(ICON_BLUETOOTH);
+  h += F("</div><div class='tx'><strong>");
   h += T(STR_BT_TITLE);
-  h += F("</h2><div class='field'>"
-         "<label class='check'><span class='switch'>"
-         "<input id='bl' type='checkbox'");
-  if (bleEnabled()) h += F(" checked");
-  h += F("><i></i></span>");
-  h += T(STR_BT_SWITCH);
-  h += F("</label><span class='hint'>");
+  h += F("</strong><span id='bbt'");
+  if (need) h += F(" style='display:none'");
+  h += '>';
   h += T(STR_W_P_BLE_HINT);
-  h += F("</span><span class='msg' id='bl-s'></span>"
-         // Shown while the switch is on and the stack cannot start: the
-         // touchscreen asks for the restart in a popup, the page asks here.
-         "<div id='br' style='display:none'><span class='msg bad'>");
+  h += F("</span><span id='bbr'");
+  if (!need) h += F(" style='display:none'");
+  h += '>';
   h += T(STR_W_P_RESTART_HINT);
-  h += F("</span><div class='inrow'><button id='rb' class='quiet'>");
+  h += F("</span><span class='msg' id='bl-s'></span><span class='msg' id='rb-s'></span></div>"
+         "<div class='end'><span class='pill wr' id='bbp'");
+  if (!need) h += F(" style='display:none'");
+  h += '>';
+  h += T(STR_W_P_RESTART_NEEDED);
+  h += F("</span><button id='rb' class='quiet'");
+  if (!need) h += F(" style='display:none'");
+  h += '>';
   h += T(STR_W_RESTART);
-  h += F("</button><span class='msg' id='rb-s'></span></div></div></div></div>");
+  h += F("</button><label class='switch'><input id='bl' type='checkbox' aria-label=\"");
+  h += T(STR_BT_SWITCH);
+  h += '"';
+  if (on) h += F(" checked");
+  h += F("><i></i></label></div></div>");
+}
 
-  supportedCard(h);
-
-  // ---- the printer ---------------------------------------------------------
-  h += F("<div class='card wide'><h2>");
-  h += T(STR_PRN_TITLE);
-  h += F("</h2><div class='field'><label>");
-  h += T(STR_PRN_DEVICE);
-  h += F("</label><div class='inrow'><span id='pd' class='v'></span>"
-         "<button id='fb' class='quiet'>");
+// The printer as a tile, its name and address filled in by the script (a
+// name is whatever the device advertised, so it never lands in markup), and
+// under it the panel the scan fills.
+static void deviceTile(String& h, const LabelPrinterConfig& c) {
+  const bool have = labelPrinterConfigured(c);
+  h += F("<div class='dev");
+  if (!have) h += F(" empty");
+  h += F("' id='dt'><div class='ic'>");
+  h += FPSTR(ICON_PRINTER);
+  h += F("</div><div class='tx'><span class='nm' id='pd'></span><span class='sub' id='pds'></span>"
+         "</div><div class='end'><button id='sc'");
+  if (have) h += F(" class='quiet'");
+  h += '>';
+  h += T(have ? STR_W_P_CHANGE : STR_BT_SCAN_WEB);
+  h += F("</button><button id='fb' class='ghost'");
+  if (!have) h += F(" style='display:none'");
+  h += '>';
   h += T(STR_PRN_FORGET);
-  h += F("</button></div><span class='msg' id='pd-s'></span></div>");
+  h += F("</button></div></div><span class='msg' id='pd-s'></span>"
+         "<div class='scan' id='sp' style='display:none'><div class='scan-h' id='sph'></div>"
+         "<div class='scan-bar' id='spb'></div><div id='dv'></div></div>"
+         "<span class='msg' id='dv-s'></span>");
+}
 
-  // The devices the last scan saw. Rows are built by the script from JSON,
-  // so a device name never lands inside markup.
-  h += F("<div class='field'><label>");
-  h += T(STR_W_P_DEVICES);
-  h += F("</label><div id='dv'></div><div class='inrow'><button id='sc' class='quiet'>");
-  h += T(STR_BT_SCAN_WEB);
-  h += F("</button><span class='hint' style='flex:1'>");
-  h += T(STR_W_P_SCAN_HINT);
-  h += F("</span></div><span class='msg' id='dv-s'></span></div>");
-
-  h += F("<div class='field'><label>");
+// Model and label stock as cards, what the model prints with, the limits of
+// the list, and the way to rolls that fit.
+static void pickers(String& h, const LabelPrinterConfig& c) {
+  const bool thermal = labelPrinterProfile(c.model).direct_thermal;
+  h += F("<div class='sect'><h3>");
   h += T(STR_PRN_MODEL);
-  h += F("</label><select id='pm'>");
-  {
-    for (int i = 0; i < LABEL_PRINTER_MODEL_COUNT; i++) {
-      const LabelPrinterModel m = LABEL_PRINTER_MODELS[i];
-      const LabelPrinterProfile& p = labelPrinterProfile(m);
-      h += F("<option value='");
-      h += String((int)m);
-      h += F("'");
-      if (c.model == m) h += F(" selected");
-      h += F(">");
-      h += p.brand; h += ' '; h += p.name;
-      if (p.experimental) { h += ' '; h += T(STR_PRN_EXPERIMENTAL); }
-      h += F("</option>");
-    }
-  }
-  h += F("</select><span class='msg' id='pm-s'></span></div>");
-
-  h += F("<div class='field'><label>");
+  h += F("</h3></div><div class='pick models' id='pm'>");
+  webPrinterModelCards(h, c);
+  h += F("</div><span class='msg' id='pm-s'></span><div class='method");
+  // Heat-sensitive paper says what a dryer does to it; the script follows
+  // the model picked.
+  if (thermal) h += F(" warm");
+  h += F("' id='pmx'><span id='pmd'");
+  if (!thermal) h += F(" style='display:none'");
+  h += '>';
+  h += T(STR_W_P_METHOD_DIRECT);
+  h += ' ';
+  h += T(STR_PRN_HEAT_SHORT);
+  h += F("</span><span id='pmr'");
+  if (thermal) h += F(" style='display:none'");
+  h += '>';
+  h += T(STR_W_P_METHOD_RIBBON);
+  h += F("</span></div>");
+  supportedHint(h);
+  h += F("<div class='sect'><h3>");
   h += T(STR_PRN_MEDIA);
-  h += F("</label><select id='ps'>");
-  {
-    bool listed = false;
-    for (int i = 0; i < LABEL_MEDIA_SIZE_COUNT; i++) {
-      const LabelMediaSize& s = LABEL_MEDIA_SIZES[i];
-      const bool cur = s.width_mm == c.media_width_mm && s.length_mm == c.media_length_mm;
-      listed = listed || cur;
-      h += F("<option value='");
-      h += String(s.width_mm); h += 'x'; h += String(s.length_mm);
-      h += F("'");
-      if (cur) h += F(" selected");
-      h += F(">");
-      h += String(s.width_mm); h += F(" x "); h += String(s.length_mm); h += F(" mm</option>");
-    }
-    if (!listed) {
-      // A size set elsewhere and not in the table: shown so it is not
-      // silently replaced, inert so it cannot be picked again.
-      h += F("<option value='' selected disabled>");
-      h += String(c.media_width_mm); h += F(" x "); h += String(c.media_length_mm); h += F(" mm</option>");
-    }
-  }
-  h += F("</select><span class='hint'>");
+  h += F("</h3><span class='hint'>");
   h += T(STR_W_P_MEDIA_HINT);
-  h += F("</span><span class='msg' id='ps-s'></span></div>");
+  h += F("</span></div><div class='pick stock' id='ps'>");
+  webPrinterStockCards(h, c);
+  h += F("</div><span class='msg' id='ps-s'></span>");
+  recommendRow(h);
+}
 
-  h += F("<div class='field'><div class='inrow'><button id='tb'>");
+static void testRow(String& h) {
+  h += F("<div class='testrow'><button id='tb'>");
   h += T(STR_PRN_TEST);
-  h += F("</button><span class='hint' style='flex:1'>");
+  h += F("</button><span class='hint'>");
   h += T(STR_W_P_TEST_HINT);
   h += F("</span></div><span class='msg' id='tb-s'></span>"
          "<div class='row' id='ltr'><span class='k'>");
   h += T(STR_W_P_LAST_TEST);
-  h += F("</span><span class='v' id='lt'></span></div></div></div>");
+  h += F("</span><span class='v' id='lt'></span></div>");
+}
 
-  // ---- where the label runs under the head ---------------------------------
-  // The strip is the print row, the block on it the label: it moves with
-  // every change, so the setting reads without words.
-  h += F("<style>"
-         ".pp-track{position:relative;height:38px;margin-top:4px;border-radius:9px;"
-         "background:var(--surface-2);border:1px solid var(--line)}"
-         ".pp-mid{position:absolute;left:50%;top:6px;bottom:6px;"
-         "border-left:1px dashed var(--ink-4)}"
-         ".pp-lab{position:absolute;top:4px;bottom:4px;border-radius:6px;"
-         "background:var(--accent-dim);border:1px solid var(--accent-line);"
-         "color:var(--accent);font-family:var(--mono);font-size:12px;"
-         "display:flex;align-items:center;justify-content:center;"
-         "transition:left .2s,width .2s}"
-         ".pp-scale{display:flex;justify-content:space-between;margin-top:6px;"
-         "font-family:var(--mono);font-size:11px;color:var(--ink-soft)}"
-         ".pp-set{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;margin-top:18px}"
-         ".pp-set .field{margin-top:0}"
-         ".pp-step{min-width:40px;padding-left:0;padding-right:0;justify-content:center}"
-         "#cb-s:empty{display:none}"
-         // The example: a calibration label in miniature, 6 px to the mm,
-         // its left edge on 8, and that number going into the field.
-         ".pp-ex{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px}"
-         ".pp-paper{position:relative;flex:0 0 124px;height:72px;border-radius:7px;"
-         "background:var(--ink-2);overflow:hidden}"
-         ".pp-flags{position:absolute;left:0;right:0;top:6px;height:16px;"
-         "border-bottom:1px solid var(--ground);background:repeating-linear-gradient("
-         "90deg,var(--ground) 0 1px,transparent 1px 24px)}"
-         ".pp-ticks{position:absolute;left:0;right:0;top:18px;height:4px;"
-         "background:repeating-linear-gradient(90deg,var(--ground) 0 1px,transparent 1px 6px)}"
-         ".pp-n{position:absolute;top:5px;font:700 10px/12px var(--mono);color:var(--ground);"
-         "padding:0 2px;background:var(--ink-2)}"
-         ".pp-n.hit{background:var(--accent);border-radius:3px}"
-         ".pp-fr{position:absolute;left:5px;right:5px;top:30px;bottom:5px;"
-         "border:1.5px solid var(--ground)}"
-         ".pp-go{display:flex;align-items:center;gap:8px;color:var(--accent);"
-         "font:600 22px var(--mono)}"
-         ".pp-go b{font-size:15px}"
-         ".pp-go b{font-weight:600;padding:6px 12px;border-radius:9px;"
-         "background:var(--ground);border:1px solid var(--line);color:var(--ink)}"
-         ".pp-txt{flex:1 1 260px;display:flex;flex-direction:column;gap:6px}"
-         ".pp-txt span:first-child{font-size:13px;color:var(--ink-2);line-height:1.5}"
-         "@media(max-width:620px){.pp-set{grid-template-columns:1fr}}"
-         "</style>");
+// ---- where the label runs under the head ---------------------------------
+// The strip is the print row, the block on it the label: it moves with every
+// change, so the setting reads without words. Its look sits with the rest of
+// the page's in web_printer_cards.cpp.
+static void calibrationCard(String& h, const LabelPrinterConfig& c) {
   // Only with a printer, like the row on the scale: the offset is kept per
   // device, and without one there is nothing to keep it for. paint() follows
   // a printer picked or forgotten on this page.
@@ -353,14 +342,12 @@ static String body() {
   h += T(STR_W_P_CAL_HINT);
   h += F("</span><span class='hint'>");
   h += T(STR_W_P_CAL_HINT2);
-  // pp-txt, pp-ex, the field, the card, and the grid the page opened.
-  h += F("</span></div></div></div></div></div>");
+  // pp-txt, pp-ex, the field and the card.
+  h += F("</span></div></div></div></div>");
+}
 
-  // Every handler is bound here rather than written into an onclick
-  // attribute: a page body is JavaScript inside a C++ string literal, and an
-  // attribute is the one place where the two levels of quoting collide.
-  // $, flash, post, postFlash and getJson come from /app.js.
-  h += F("<script>");
+// The texts the script writes, in the page's language.
+static void scriptStrings(String& h) {
   h += webShellJsStrings();
   h += F("const P={none:");
   h += jsStr(T(STR_PRN_NONE));
@@ -376,8 +363,8 @@ static String body() {
   h += jsStr(T(STR_PRN_TITLE));
   h += F(",scanning:");
   h += jsStr(T(STR_BT_SCANNING));
-  h += F(",notYet:");
-  h += jsStr(T(STR_BT_DEVICES_NONE_YET));
+  h += F(",devices:");
+  h += jsStr(T(STR_W_P_DEVICES));
   h += F(",noneFound:");
   h += jsStr(T(STR_BT_NONE_FOUND));
   h += F(",off:");
@@ -386,55 +373,113 @@ static String body() {
   h += jsStr(T(STR_PRN_ERR_STUCK));
   h += F(",restarting:");
   h += jsStr(T(STR_W_RESTARTING));
-  h += F("};"
-         "let timer=0,allOpen=false;"
-         // Dots to the millimetre of the model in use and the offset's range,
-         // from the state.
-         "let K=8,R={min:0,max:0};"
-         // The device rows, from the JSON: createElement and textContent,
+  h += F(",scan:");
+  h += jsStr(T(STR_BT_SCAN_WEB));
+  h += F(",change:");
+  h += jsStr(T(STR_W_P_CHANGE));
+  h += F(",pick:");
+  h += jsStr(T(STR_W_P_PICK_HINT));
+  // Without a printer the tile says what to do and what the scan costs.
+  String empty = T(STR_W_P_EMPTY_HINT);
+  empty += ' ';
+  empty += T(STR_W_P_SCAN_HINT);
+  h += F(",empty:");
+  h += jsStr(empty.c_str());
+  h += F("};");
+}
+
+// The bar and the tile from the state.
+static void scriptDevice(String& h) {
+  h += F("let timer=0,allOpen=false,wasScanning=false;"
+         // Four bars on the status page's ladder, green from three up.
+         "const SIG_DBM=[");
+  h += String(SIGNAL_BARS_4_DBM); h += ',';
+  h += String(SIGNAL_BARS_3_DBM); h += ',';
+  h += String(SIGNAL_BARS_2_DBM);
+  h += F("];"
+         "function sig(r){const n=r>=SIG_DBM[0]?4:r>=SIG_DBM[1]?3:r>=SIG_DBM[2]?2:1;"
+         "const s=document.createElement('span');s.className='sig';s.title=r+' dBm';"
+         "for(let i=1;i<=4;i++){const b=document.createElement('i');"
+         "if(i<=n)b.style.background=n>=3?'var(--accent)':'var(--warn)';s.appendChild(b);}"
+         "return s;}"
+         "function bar(d){const need=d.ble&&!d.stack;"
+         "$('bb').className='btbar'+(d.ble?' live':'')+(need?' need':'');"
+         "$('bl').checked=d.ble;$('bbt').style.display=need?'none':'';"
+         "['bbr','bbp','rb'].forEach(function(i){$(i).style.display=need?'':'none';});}"
+         // The model's brand and name come from its card, so the tile and
+         // the cards never disagree.
+         "function tile(d){const on=d.printer.configured,m=document.querySelector('#pm .pc.on'),s=$('pds');"
+         "$('dt').className='dev'+(on?'':' empty');"
+         "$('pd').textContent=on?(d.printer.name||P.unnamed):P.none;"
+         "if(on){s.textContent=d.printer.address+(m?'  \\u00b7  '+m.querySelector('.br').textContent+' '"
+         "+m.querySelector('.mn').textContent:'');"
+         "const seen=d.devices.filter(function(x){return x.printer;})[0];if(seen)s.appendChild(sig(seen.rssi));}"
+         "else s.textContent=!d.ble?P.off:d.stuck?P.stuck:(d.scanned&&d.devices.length)?P.pick:P.empty;"
+         "$('sc').textContent=on?P.change:P.scan;$('sc').className=on?'quiet':'';"
+         "$('fb').style.display=on?'':'none';}");
+}
+
+// The scan panel and its rows.
+static void scriptRows(String& h) {
+  h += F(// The device rows, from the JSON: createElement and textContent,
          // never markup, because a name is whatever the device advertised.
          // Named devices and the printer stand open; the nameless ones (phones,
          // beacons, most of what a scan sees) fold away under one line, as the
          // display's list does (ui/ble_devices_screen.cpp).
-         "function rows(d){"
-         "const box=$('dv');box.textContent='';"
-         "if(!d.ble){box.textContent=P.off;return;}"
-         "if(d.stuck){box.textContent=P.stuck;return;}"
-         "if(d.scanning){box.textContent=P.scanning;return;}"
-         "if(!d.scanned){box.textContent=P.notYet;return;}"
-         "if(!d.devices.length){box.textContent=P.noneFound;return;}"
+         "function rows(d){const p=$('sp'),box=$('dv'),b=$('spb');"
+         "const show=d.ble&&(d.stuck||d.scanning||d.scanned);p.style.display=show?'':'none';"
+         "if(!show){wasScanning=false;return;}"
+         "$('sph').textContent=d.scanning?P.scanning:P.devices;b.style.display=d.scanning?'':'none';"
+         // The bar fills once over the scan's five seconds, from its start.
+         "if(d.scanning&&!wasScanning){b.textContent='';b.appendChild(document.createElement('i'));}"
+         "wasScanning=d.scanning;box.textContent='';"
+         "const say=function(t){const e=document.createElement('div');e.className='emp';e.textContent=t;box.appendChild(e);};"
+         "if(d.stuck){say(P.stuck);return;}"
+         "if(d.scanning)return;"
+         "if(!d.devices.length){say(P.noneFound);return;}"
          "const rest=d.devices.filter(function(x){return !x.name&&!x.printer;});"
          "d.devices.filter(function(x){return x.name||x.printer;}).forEach(function(x){box.appendChild(row(x));});"
          "if(!rest.length)return;"
          "const m=document.createElement('details');m.className='more';m.open=allOpen;"
          "const s=document.createElement('summary');"
-         "const say=function(){s.textContent=m.open?P.named:P.showAll.replace('%d',rest.length);};say();"
-         "m.appendChild(s);m.addEventListener('toggle',function(){allOpen=m.open;say();});"
+         "const tell=function(){s.textContent=m.open?P.named:P.showAll.replace('%d',rest.length);};tell();"
+         "m.appendChild(s);m.addEventListener('toggle',function(){allOpen=m.open;tell();});"
          "rest.forEach(function(x){m.appendChild(row(x));});box.appendChild(m);}"
          "function row(x){"
-         "const r=document.createElement('div');r.className='row';"
-         "const k=document.createElement('span');k.className='k';"
-         "k.textContent=(x.name||P.unnamed)+'  '+x.address+'  '+x.rssi+' dBm';"
-         "r.appendChild(k);"
-         "const v=document.createElement('span');v.className='v';"
+         "const r=document.createElement('div');r.className='drow'+(x.printer?' mine':'');"
+         "const n=document.createElement('span');n.className='nm';n.textContent=x.name||P.unnamed;"
+         "const a=document.createElement('small');a.textContent=x.address;n.appendChild(a);"
+         "r.appendChild(n);r.appendChild(sig(x.rssi));"
          "if(x.printer){const p=document.createElement('span');p.className='pill ok';"
-         "p.textContent=P.printer;v.appendChild(p);}"
+         "p.textContent=P.printer;r.appendChild(p);}"
          "else{const b=document.createElement('button');b.className='quiet';"
          "b.textContent=P.asPrinter;"
          "b.addEventListener('click',function(){"
          "postFlash('/api/printer/device',x.address,'dv-s',4000).then(load);});"
-         "v.appendChild(b);}"
-         "r.appendChild(v);return r;}"
+         "r.appendChild(b);}"
+         "return r;}");
+}
+
+// The cards and the rest of the state onto the page.
+static void scriptPaint(String& h) {
+  h += F(// Only the sizes the picked model takes; the save puts a size it
+         // cannot take back to the model's default, and the next state shows it.
+         "function cards(d){const v=d.printer.w+'x'+d.printer.h,m=String(d.printer.model);"
+         "document.querySelectorAll('#pm .pc').forEach(function(b){"
+         "b.classList.toggle('on',b.dataset.m===m);});"
+         "document.querySelectorAll('#ps .pc').forEach(function(b){"
+         "b.style.display=b.dataset.fit.split(' ').indexOf(m)>=0?'':'none';"
+         "b.classList.toggle('on',b.dataset.v===v);});"
+         "$('pmx').classList.toggle('warm',d.printer.thermal);"
+         "$('pmd').style.display=d.printer.thermal?'':'none';"
+         "$('pmr').style.display=d.printer.thermal?'none':'';}"
          "function paint(d){"
-         "$('bl').checked=d.ble;"
-         "$('pd').textContent=d.printer.configured?((d.printer.name||P.unnamed)+'  '+d.printer.address):P.none;"
-         "$('fb').style.display=d.printer.configured?'':'none';"
+         "bar(d);cards(d);tile(d);"
          "$('pc').style.display=d.printer.configured?'':'none';"
-         "$('pm').value=String(d.printer.model);"
-         "$('ps').value=d.printer.w+'x'+d.printer.h;"
+         "document.querySelectorAll('.pr-rec').forEach(function(e){"
+         "e.style.display=+e.dataset.v===d.printer.rec?'':'none';});"
          "$('lt').textContent=d.lastTest||'';"
          "$('ltr').style.display=d.lastTest?'':'none';"
-         "$('br').style.display=(d.ble&&!d.stack)?'':'none';"
          "$('sc').disabled=!d.ble||!d.stack||d.stuck||d.scanning;"
          "$('tb').disabled=!d.ble||!d.stack||d.stuck||!d.printer.configured;"
          "$('cb').disabled=$('tb').disabled;"
@@ -442,7 +487,14 @@ static String body() {
          "rows(d);"
          // While the scale scans, ask again in two seconds; the scan itself
          // takes five.
-         "clearTimeout(timer);if(d.scanning)timer=setTimeout(load,2000);}"
+         "clearTimeout(timer);if(d.scanning)timer=setTimeout(load,2000);}");
+}
+
+// The strip and the offset field.
+static void scriptPosition(String& h) {
+  h += F(// Dots to the millimetre of the model in use and the offset's range,
+         // from the state.
+         "let K=8,R={min:0,max:0};"
          // The strip in percent of the row; the buttons light up for the
          // edge or the middle the offset stands at.
          // A tenth of a millimetre only where it is one: 203 dpi is not quite
@@ -468,8 +520,15 @@ static String body() {
          // first: with under a millimetre of play, 0 would land on an edge.
          "function dots(m){const v=Math.round(m*K);"
          "for(const s of [0,R.min,R.max])if(Math.abs(v-s)<K/2)return s;return v;}"
-         "function setOff(v){postFlash('/api/printer/offset',String(v),'xo-s',3000).then(load);}"
-         "function load(){getJson('/api/printer').then(function(d){if(d)paint(d);});}"
+         "function setOff(v){postFlash('/api/printer/offset',String(v),'xo-s',3000).then(load);}");
+}
+
+// Every handler is bound here rather than written into an onclick
+// attribute: a page body is JavaScript inside a C++ string literal, and an
+// attribute is the one place where the two levels of quoting collide.
+// $, flash, post, postFlash and getJson come from /app.js.
+static void scriptHandlers(String& h) {
+  h += F("function load(){getJson('/api/printer').then(function(d){if(d)paint(d);});}"
          // The box already shows what was asked for, so a failure has to put
          // it back. Same shape as every switch on the settings page.
          "$('bl').addEventListener('change',function(){"
@@ -479,10 +538,13 @@ static String body() {
          "flash('bl-s',r.ok?WS.ok:WS.err,!r.ok,4000);load();});});"
          "$('sc').addEventListener('click',function(){"
          "postFlash('/api/printer/scan','','dv-s',4000).then(function(){setTimeout(load,500);});});"
-         "$('pm').addEventListener('change',function(){"
-         "postFlash('/api/printer/model',$('pm').value,'pm-s',4000).then(load);});"
-         "$('ps').addEventListener('change',function(){"
-         "postFlash('/api/printer/media',$('ps').value,'ps-s',4000).then(load);});"
+         // A card posts what it stands for; the one already picked does nothing.
+         "document.querySelectorAll('#pm .pc').forEach(function(b){"
+         "b.addEventListener('click',function(){if(b.classList.contains('on'))return;"
+         "postFlash('/api/printer/model',b.dataset.m,'pm-s',4000).then(load);});});"
+         "document.querySelectorAll('#ps .pc').forEach(function(b){"
+         "b.addEventListener('click',function(){if(b.classList.contains('on'))return;"
+         "postFlash('/api/printer/media',b.dataset.v,'ps-s',4000).then(load);});});"
          // The print takes about ten seconds on the scale; the verdict is
          // fetched after that and shown on the last line.
          "$('tb').addEventListener('click',function(){"
@@ -503,8 +565,38 @@ static String body() {
          "if(!r.ok){flash('rb-s',r.text||WS.err,true,5000);return;}"
          "flash('rb-s',P.restarting,false);"
          "setTimeout(function(){location.reload();},9000);});});"
-         "load();"
-         "</script>");
+         "load();");
+}
+
+static void pageScript(String& h) {
+  h += F("<script>");
+  scriptStrings(h);
+  scriptDevice(h);
+  scriptRows(h);
+  scriptPosition(h);
+  scriptPaint(h);
+  scriptHandlers(h);
+  h += F("</script>");
+}
+
+static String body() {
+  const LabelPrinterConfig c = labelPrinterLoadConfig();
+  String h;
+  // Measured 23.8 KB in English (v0.8.3-beta.85); French runs longer.
+  h.reserve(26000);
+  webPrinterPageStyle(h);
+  h += F("<div class='grid'>");
+  bluetoothBar(h);
+  h += F("<div class='card wide'><h2>");
+  h += T(STR_PRN_TITLE);
+  h += F("</h2>");
+  deviceTile(h, c);
+  pickers(h, c);
+  testRow(h);
+  h += F("</div>");
+  calibrationCard(h, c);
+  h += F("</div>");
+  pageScript(h);
   return h;
 }
 

@@ -201,6 +201,14 @@ lv_obj_t* makeListBtn(lv_obj_t* list, const char* ico_sym, const char* title,
   return btn;
 }
 
+void markListBtnChosen(lv_obj_t* btn, bool active) {
+  lv_obj_t* arr_lbl = lv_obj_get_child(btn, -1);
+  if (!arr_lbl) return;
+  lv_label_set_text(arr_lbl, active ? LV_SYMBOL_OK : "");
+  lv_obj_set_style_text_color(arr_lbl, lv_color_hex(UI_COL_ACCENT), 0);
+  lv_obj_set_style_text_font(arr_lbl, UI_FONT_BODY, 0);
+}
+
 void addBackButton(lv_obj_t *parent, lv_event_cb_t cb) {
   lv_obj_t *btn = lv_btn_create(parent);
   lv_obj_set_size(btn, 44, 44);
@@ -412,6 +420,7 @@ static void settingRowClicked(lv_event_t *e) {
       case OPEN_FLM_FIELDS:      show_filaman_fields_pending  = true; break;
       case OPEN_AMS_ASSIGN:      show_ams_assign_pending      = true; break;
       case OPEN_BB_DRIED:        show_bambuddy_dried_pending  = true; break;
+      case OPEN_TAG_COMP:        show_tag_comp_pending        = true; break;
       default: break;
     }
     logSDf("BTN: Options -> %s", s->id);
@@ -477,4 +486,55 @@ void addSettingRows(lv_obj_t *list) {
   // What the rows themselves cost, against the reading buildOverlayScreen()
   // took a moment earlier. The difference is one screen's worth of rows.
   logLvMem("options", rows);
+}
+
+lv_obj_t* labelOneLine(lv_obj_t* parent, const char* text, const lv_font_t* font, int max_w) {
+  lv_obj_t* l = lv_label_create(parent);
+  lv_obj_set_style_text_font(l, font, 0);
+  lv_label_set_text(l, text);
+  lv_point_t size;
+  lv_txt_get_size(&size, text, font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+  lv_obj_set_size(l, LV_MIN(size.x, max_w), lv_font_get_line_height(font));
+  lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+  return l;
+}
+
+lv_obj_t* padButton(lv_obj_t* parent, int x, int y, int w, int h, uint32_t bg, uint32_t bg_pressed) {
+  lv_obj_t* b = lv_btn_create(parent);
+  lv_obj_set_size(b, w, h);
+  lv_obj_set_pos(b, x, y);
+  lv_obj_set_style_bg_color(b, lv_color_hex(bg), 0);
+  lv_obj_set_style_bg_color(b, lv_color_hex(bg_pressed), LV_STATE_PRESSED);
+  lv_obj_set_style_radius(b, UI_RADIUS_INPUT, 0);
+  lv_obj_set_style_shadow_width(b, 0, 0);
+  lv_obj_set_style_border_width(b, 1, 0);
+  lv_obj_set_style_border_color(b, lv_color_hex(UI_COL_LINE_SOFT), 0);
+  return b;
+}
+
+lv_obj_t* padLabel(lv_obj_t* btn, const char* text, uint32_t col, const lv_font_t* font) {
+  lv_obj_t* l = lv_label_create(btn);
+  lv_label_set_text(l, text);
+  lv_obj_set_style_text_color(l, lv_color_hex(col), 0);
+  lv_obj_set_style_text_font(l, font, 0);
+  lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_center(l);
+  return l;
+}
+
+void spoolStartText(const SpoolStart& s, bool tare_inherited, char* out, size_t out_size) {
+  if (s.verdict == START_NOT_WEIGHED) {
+    snprintf(out, out_size, T(STR_TAGNEW_W_NOT), s.label_g);
+  } else if (s.verdict == START_NO_TARE) {
+    snprintf(out, out_size, T(STR_TAGNEW_W_NO_TARE), s.label_g);
+  } else if (s.verdict == START_OVER && tare_inherited) {
+    snprintf(out, out_size, T(STR_TAGNEW_W_OVER_TARE), s.net_g, s.tare_g);
+  } else if (s.verdict == START_OVER) {
+    snprintf(out, out_size, T(STR_TAGNEW_W_OVER), s.net_g, s.label_g);
+  } else if (s.verdict == START_FULL && s.initial_g != s.label_g) {
+    snprintf(out, out_size, T(STR_TAGNEW_W_FULL), s.remaining_g);
+  } else {
+    // Used, or full on a default core: the label stays the full weight.
+    snprintf(out, out_size, T(STR_TAGNEW_W_OF), s.remaining_g, s.label_g);
+  }
 }

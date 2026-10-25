@@ -17,6 +17,7 @@
 #define LP_KEY_NAME  "printer_name"
 #define LP_KEY_W     "printer_w"
 #define LP_KEY_H     "printer_h"
+#define LP_KEY_ASK   "printer_ask"
 // The offset belongs to one printer, not to the scale: "px" and the device's
 // address without colons, 14 characters. A second printer starts at 0, and
 // the first gets its own back when it is picked again (Nikolai, 30.09.2026).
@@ -33,6 +34,16 @@ static const LabelPrinterProfile PROFILE_M220 = {
 // with this profile on an M100 (09.2026), which proves the M110 bytes.
 static const LabelPrinterProfile PROFILE_M110 = {
   LP_MODEL_M110, "Phomemo", "M110", 40, 30, 20, 48, 10, 150, 384, 384, false, true,
+  203, LP_PROTO_PHOMEMO_M110
+};
+// M110S: the M110's bytes, but its roll runs against the right wall, and a
+// 384 dot row lands about 1 mm left of it even with the label at the row's
+// right end (issue #55). Phomemo's own app, and a USB tool written for this
+// printer, send a row exactly as wide as the label and let the printer place
+// it: a base width of 0 does that here, and leaves no offset to set. The
+// reporter's calibration page sat centred on 40 x 30 with beta.63.
+static const LabelPrinterProfile PROFILE_M110S = {
+  LP_MODEL_M110S, "Phomemo", "M110S", 40, 30, 20, 48, 10, 150, 0, 384, false, true,
   203, LP_PROTO_PHOMEMO_M110
 };
 // M100: the M110's head and bytes under its own name, so a user finds it.
@@ -59,22 +70,27 @@ static const LabelPrinterProfile PROFILE_M221 = {
 // NIIMBOT's 50 mm class: B1, B21, B21S and B21 C2B at 384 dots, the B203 at
 // 400, all 203 dpi. The printer says which it is and the driver pads the
 // row. Its standard roll is 50 x 30, of which the 48 mm head prints 48. The
-// protocol is from niimbluelib; no NIIMBOT was at hand, testers decide.
+// protocol is from niimbluelib. A user printed on a B1 several times, 40 x 30
+// (14.10.2026); the B21 and B203 share the driver but have not been tried.
 static const LabelPrinterProfile PROFILE_NIIMBOT_B = {
-  LP_MODEL_NIIMBOT_B, "NIIMBOT", "B1, B21, B203", 50, 30, 20, 50, 10, 150, 384, 384, true, true,
+  LP_MODEL_NIIMBOT_B, "NIIMBOT", "B1, B21, B203", 50, 30, 20, 50, 10, 150, 384, 384, false, true,
   203, LP_PROTO_NIIMBOT
 };
 // NIIMBOT M2: 300 dpi, 567 dots, which is 71 bytes and so a 568 dot row.
 // Prints through a ribbon, so the label survives the dryer. Same protocol,
-// the B1's sequence.
+// the B1's sequence. 50 x 30 is the first roll for it (Nikolai, 21.10.2026),
+// of which the 48 mm head prints 48, as on the B1. Only 50 mm wide: NIIMBOT
+// sells no 40 x 30 roll for it, and no layout of ours fits a narrower one.
+// Hardware proven: Nikolai printed on it with the original white 50 x 30
+// roll and black ribbon (22.10.2026).
 static const LabelPrinterProfile PROFILE_NIIMBOT_M2 = {
-  LP_MODEL_NIIMBOT_M2, "NIIMBOT", "M2", 40, 30, 20, 50, 10, 150, 568, 568, true, false,
+  LP_MODEL_NIIMBOT_M2, "NIIMBOT", "M2", 50, 30, 50, 50, 10, 150, 568, 568, false, false,
   300, LP_PROTO_NIIMBOT
 };
 
 const LabelPrinterModel LABEL_PRINTER_MODELS[] = {
-  LP_MODEL_M220, LP_MODEL_M110, LP_MODEL_M100, LP_MODEL_M120, LP_MODEL_M200, LP_MODEL_M221,
-  LP_MODEL_NIIMBOT_B, LP_MODEL_NIIMBOT_M2,
+  LP_MODEL_M220, LP_MODEL_NIIMBOT_M2, LP_MODEL_M110, LP_MODEL_M110S, LP_MODEL_M100,
+  LP_MODEL_NIIMBOT_B, LP_MODEL_M120, LP_MODEL_M200, LP_MODEL_M221,
 };
 const int LABEL_PRINTER_MODEL_COUNT = sizeof(LABEL_PRINTER_MODELS) / sizeof(LABEL_PRINTER_MODELS[0]);
 
@@ -86,8 +102,19 @@ const LabelMediaSize LABEL_MEDIA_SIZES[] = {
 };
 const int LABEL_MEDIA_SIZE_COUNT = sizeof(LABEL_MEDIA_SIZES) / sizeof(LABEL_MEDIA_SIZES[0]);
 
+// 50 x 50 rolls are sold for the M220, the B1 and the M2, but no layout of
+// ours is drawn for them yet (Nikolai, 22.10.2026).
+const LabelMediaSize LABEL_MEDIA_SIZES_PLANNED[] = {
+  {50, 50},
+};
+const int LABEL_MEDIA_PLANNED_COUNT =
+  sizeof(LABEL_MEDIA_SIZES_PLANNED) / sizeof(LABEL_MEDIA_SIZES_PLANNED[0]);
+
 static LabelPrinterConfig s_config{};
 static bool s_loaded = false;
+// Whether "Print label" opens the print sheet first. Cached like the config.
+static bool s_ask_first = true;
+static bool s_ask_loaded = false;
 
 // The NVS key of a printer's offset; false for no printer. An address is
 // 17 characters, six pairs of hex digits and five colons.
@@ -114,6 +141,7 @@ const LabelPrinterProfile& labelPrinterProfile(LabelPrinterModel model) {
   switch (model) {
     case LP_MODEL_M220: return PROFILE_M220;
     case LP_MODEL_M110: return PROFILE_M110;
+    case LP_MODEL_M110S: return PROFILE_M110S;
     case LP_MODEL_M100: return PROFILE_M100;
     case LP_MODEL_M120: return PROFILE_M120;
     case LP_MODEL_M200: return PROFILE_M200;
@@ -128,6 +156,10 @@ static bool mediaFits(const LabelPrinterProfile& p, uint16_t w, uint16_t h) {
   return p.model != LP_MODEL_NONE &&
          w >= p.min_width_mm && w <= p.max_width_mm &&
          h >= p.min_length_mm && h <= p.max_length_mm;
+}
+
+bool labelPrinterTakesMedia(LabelPrinterModel model, uint16_t width_mm, uint16_t length_mm) {
+  return mediaFits(labelPrinterProfile(model), width_mm, length_mm);
 }
 
 // What is stored is taken as it is, except for two things that would leave
@@ -200,6 +232,10 @@ bool labelPrinterSaveConfig(const LabelPrinterConfig& in) {
 }
 
 bool labelPrinterConfigured(const LabelPrinterConfig& c) { return c.address[0] != '\0'; }
+
+bool labelPrinterRecommended(LabelPrinterModel model) {
+  return model == LP_MODEL_M220 || model == LP_MODEL_NIIMBOT_M2;
+}
 
 bool labelPrinterForget() {
   LabelPrinterConfig c = labelPrinterLoadConfig();
@@ -359,4 +395,35 @@ int labelPrintResultString(LabelPrintResult r) {
     case LP_SERVER_LABEL:       return STR_PRN_ERR_SERVER_LABEL;
     default:                    return STR_PRN_ERR_WRITE;
   }
+}
+
+// The next stock size the model can take, after the current one; the first
+// fitting one when the current one is not in the table.
+void labelPrinterNextMedia(LabelPrinterConfig& c) {
+  const LabelPrinterProfile& p = labelPrinterProfile(c.model);
+  int at = -1;
+  for (int i = 0; i < LABEL_MEDIA_SIZE_COUNT; i++)
+    if (LABEL_MEDIA_SIZES[i].width_mm == c.media_width_mm &&
+        LABEL_MEDIA_SIZES[i].length_mm == c.media_length_mm) { at = i; break; }
+  for (int step = 1; step <= LABEL_MEDIA_SIZE_COUNT; step++) {
+    const LabelMediaSize& s = LABEL_MEDIA_SIZES[(at + step) % LABEL_MEDIA_SIZE_COUNT];
+    if (s.width_mm >= p.min_width_mm && s.width_mm <= p.max_width_mm &&
+        s.length_mm >= p.min_length_mm && s.length_mm <= p.max_length_mm) {
+      c.media_width_mm = s.width_mm;
+      c.media_length_mm = s.length_mm;
+      return;
+    }
+  }
+}
+
+bool labelPrinterAskFirst() {
+  if (!s_ask_loaded) { s_ask_first = prefsGetBool(LP_KEY_ASK, true); s_ask_loaded = true; }
+  return s_ask_first;
+}
+
+bool labelPrinterSetAskFirst(bool ask) {
+  const bool ok = prefsPutBool(LP_KEY_ASK, ask);
+  if (ok) { s_ask_first = ask; s_ask_loaded = true; }
+  logSDf("Printer: print sheet %s %s", ask ? "on" : "off", ok ? "saved" : "NOT saved");
+  return ok;
 }

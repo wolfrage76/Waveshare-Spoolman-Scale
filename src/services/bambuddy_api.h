@@ -105,6 +105,12 @@ int  bbGetHealthCode(const char* base_url, const char* api_key,
 bool bbGetVersion(const char* base_url, const char* api_key,
        char* out_version, size_t out_size, uint32_t timeout_ms = 4000);
 
+// BamBuddy's "External URL" (Settings > General), the address its own labels
+// link to: in `out` as stored, "" when unset. Returns the HTTP code; the key
+// needs the read scope it holds for the inventory anyway.
+int  bbGetExternalUrl(const char* base_url, const char* api_key,
+       char* out, size_t out_size, uint32_t timeout_ms = 4000);
+
 // Reads a spool exactly as BamBuddy stores it, skipping the Spoolman shaping
 // mapSpool() applies. Only spool creation needs this: subtype and color_name
 // are folded into filament.name by the mapping and rgba loses its alpha, so a

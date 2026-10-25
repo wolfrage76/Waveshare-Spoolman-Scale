@@ -16,5 +16,6 @@ void hideMoreInfoOverlays();
 void closeMoreInfoPopups();
 // Parks the same unlink the More Info button runs, for a spool that was just
 // archived. all frees every tag of the spool, erase_now erases the tag on the
-// reader without asking again. Only flags, so safe from an LVGL callback.
-void requestSpoolUnlink(int spool_id, bool all, bool erase_now);
+// reader without asking again, and only when it is still erase_uid, the tag
+// the question named. Only flags, so safe from an LVGL callback.
+void requestSpoolUnlink(int spool_id, bool all, bool erase_now, const char* erase_uid);

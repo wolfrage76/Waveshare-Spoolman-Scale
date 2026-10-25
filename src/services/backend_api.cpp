@@ -597,6 +597,32 @@ bool backendGetVersion(const char* base_url, char* out_version, size_t out_size,
   }
 }
 
+void backendTargetSnapshot(BackendTarget* out) {
+  out->mode = backendMode();
+  snprintf(out->base, sizeof(out->base), "%s", backendBaseUrl());
+  const char* key = out->mode == BACKEND_FILAMAN  ? filamanApiKey()
+                  : out->mode == BACKEND_BAMBUDDY ? bambuddyApiKey() : "";
+  snprintf(out->key, sizeof(out->key), "%s", key);
+}
+
+int backendGetLinkBaseAt(const BackendTarget& at, char* out, size_t out_size, uint32_t timeout_ms) {
+  switch (at.mode) {
+    case BACKEND_FILAMAN:
+      return notSupported(__func__);
+    case BACKEND_BAMBUDDY:
+      return bbGetExternalUrl(at.base, at.key, out, out_size, timeout_ms);
+    default:
+      return spoolmanGetBaseUrlSetting(at.base, out, out_size, timeout_ms);
+  }
+}
+
+int backendGetLinkBase(char* out, size_t out_size, uint32_t timeout_ms) {
+  HttpStallTime stall(__func__);   // the loop stands still for this call
+  BackendTarget at;
+  backendTargetSnapshot(&at);
+  return backendGetLinkBaseAt(at, out, out_size, timeout_ms);
+}
+
 int backendCountActiveSpools(const char* base_url, uint32_t timeout_ms) {
   HttpStallTime stall(__func__);   // the loop stands still for this call
   switch (backendMode()) {
@@ -824,7 +850,8 @@ static int bambuddyCreateFromTag(const TagCreateInput& in, const TagFilamentPlan
   ns.rgba            = in.rgba;
   ns.color_name      = plan.name;
   ns.label_weight    = v.label_weight;
-  ns.core_weight     = in.spool_weight_g;
+  // BamBuddy subtracts the spool's own core on its side, so the spool gets it.
+  ns.core_weight     = tagCreateTare(in, plan, nullptr, nullptr);
   ns.core_weight_catalog_id = in.spool_catalog_id;
   ns.nozzle_temp_min = in.temp_min;
   ns.nozzle_temp_max = in.temp_max;
@@ -868,9 +895,14 @@ void backendPlanTagFilament(const TagCreateInput& in, TagFilamentPlan* plan) {
       spoolmanPlanTagFilament(backendBaseUrl(), in, plan);
       break;
   }
-  logSDf("Tag create plan: %s %s %s art=%s -> state %d, filament %d \"%s\"",
+  // A maker's fixed core gives way to an empty spool the brand has on file:
+  // the filament is then created without one and inherits the brand's, the
+  // way the lookup's chain reads it (spoolTare()).
+  if (in.spool_weight_default && plan->vendor_spool_weight_g > 0) plan->spool_weight_g = 0;
+  logSDf("Tag create plan: %s %s %s art=%s -> state %d, filament %d \"%s\", tare %d/%d/%d g",
          in.vendor, in.material, in.subtype, in.article, (int)plan->state,
-         plan->filament_id, plan->name);
+         plan->filament_id, plan->name, plan->found_spool_weight_g,
+         plan->vendor_spool_weight_g, plan->spool_weight_g);
 }
 
 // The filament the new spool goes under: the one the plan found, or a new
@@ -919,8 +951,9 @@ static int bambuddyCreateUnderSpoolman(const TagCreateInput& in, const TagFilame
   // the Spoolman filament anyway, as it does for every other spool there.
   ns.color_name   = in.color_name_en;
   ns.label_weight = v.label_weight;
-  // The tag's empty spool, else the one Spoolman's database gave the filament.
-  ns.core_weight  = in.spool_weight_g > 0 ? in.spool_weight_g : plan.spool_weight_g;
+  // BamBuddy subtracts the spool's own core on its side, so the spool gets
+  // what it is weighed against, whichever level it came from.
+  ns.core_weight  = tagCreateTare(in, plan, nullptr, nullptr);
   if (v.price > 0.0f && v.label_weight > 0) ns.cost_per_kg = v.price * 1000.0f / (float)v.label_weight;
   ns.weight_used  = (float)v.label_weight - v.remaining;
   if (ns.weight_used < 0.0f) ns.weight_used = 0.0f;
@@ -949,8 +982,15 @@ int backendCreateFromTag(const TagCreateInput& in, const TagFilamentPlan& plan,
   int filament_id = 0;
   int code = filamentForSpool(in, plan, out, &filament_id);
   if (code != 200) return code;
-  // The tag's empty spool, else the one Spoolman's database gave the filament.
-  const float spool_w = (float)(in.spool_weight_g > 0 ? in.spool_weight_g : plan.spool_weight_g);
+  // What the new spool is weighed against. Spoolman keeps the chain itself
+  // (spoolTare()): a tare inherited from the filament or the brand is not
+  // copied onto the spool, so a later correction there still reaches it.
+  // FilaMan subtracts the spool's own empty weight on its side, so it gets
+  // the value whichever level it came from.
+  uint8_t tare_from = TARE_NONE;
+  const int tare = tagCreateTare(in, plan, &tare_from, nullptr);
+  const bool inherited = tare_from == TARE_FILAMENT || tare_from == TARE_VENDOR;
+  const float spool_w = (inherited && !backendIsFilaMan()) ? 0.0f : (float)tare;
   out->spool_sent = true;
   code = backendIsFilaMan()
     ? filamanCreateSpool(backendBaseUrl(), filamanApiKey(), filament_id, (float)v.label_weight,
@@ -1665,4 +1705,12 @@ int backendLabelRender(FilamanLabelRequest req, LabelRaster* out,
   req.base_url = backendBaseUrl();
   req.api_key = filamanApiKey();
   return filamanLabelRender(req, out, reason, reason_size);
+}
+
+int backendLabelPrintRequest(bool filament, int id, char* reason, size_t reason_size,
+                             uint32_t timeout_ms) {
+  HttpStallTime stall(__func__);
+  if (backendMode() != BACKEND_FILAMAN) return notSupported(__func__);
+  return filamanLabelPrintRequest(backendBaseUrl(), filamanApiKey(), filament, id,
+                                  reason, reason_size, timeout_ms);
 }

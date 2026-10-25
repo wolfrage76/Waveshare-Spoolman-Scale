@@ -42,6 +42,7 @@
 #include "ui/theme.h"
 #include "ui/db_pick_screen.h"
 #include "ui/tag_create_popup.h"
+#include "ui/unknown_spool_popup.h"
 #include "ui/entry_tile.h"
 #include "ui/ui_common.h"
 #include "services/backend.h"
@@ -568,7 +569,8 @@ static bool           s_lf_have_stamp = false;
 static InventoryStamp s_lf_stamp      = { -1, 0 };
 static JsonDocument   s_lf_filter;
 
-LinkFetch fetchAllSpoolsForLink(bool is_bambu, const char* material_filter, bool archived_only) {
+LinkFetch fetchAllSpoolsForLink(bool is_bambu, const char* material_filter, bool archived_only,
+                                bool cache_only) {
   crumbSet("link fetch");
   // Free any previous allocation
   linkSpoolsFree();
@@ -661,7 +663,7 @@ LinkFetch fetchAllSpoolsForLink(bool is_bambu, const char* material_filter, bool
     // The server is gone. The download would only find that out again, eight
     // seconds later and behind a loading overlay.
     if (serverReachIsNetworkFailure(sc)) {
-      serverReachNote(sc, true);
+      serverReachNote(sc, !cache_only);
       return LINK_FETCH_FAILED;
     }
     have_stamp = (sc == 200);
@@ -677,6 +679,10 @@ LinkFetch fetchAllSpoolsForLink(bool is_bambu, const char* material_filter, bool
   //
   // The loop keeps running while it comes in: the card counts the kilobytes
   // and offers Cancel. linkFetchTick() takes the list when it is in.
+  if (!from_cache && cache_only) {
+    logSD("link fetch: the cache cannot serve, nothing fetched");
+    return LINK_FETCH_FAILED;
+  }
   if (!from_cache) {
     s_lf_filter.set(filterL.as<JsonVariantConst>());
     s_lf_is_bambu   = is_bambu;
@@ -886,8 +892,12 @@ enum LinkFetchNext : uint8_t {
 };
 
 static void closeLinkOverlays();
+static void linkRowChosen(int idx);
 
 static LinkFetchNext s_lf_next = LF_NEXT_NONE;
+// A spool to open the confirmation for once the direct list is up, see
+// linkSuggestOpenList(). 0 for none.
+static int s_lf_pick_id = 0;
 // The filter level of a reload, copied: showFilteredSpoolList() writes into
 // the buffers they come from.
 static char s_lf_vendor[sizeof(link_list_vendor)]     = "";
@@ -900,12 +910,28 @@ static bool          s_lf_queued_bambu    = false;
 static char          s_lf_queued_mat[sizeof(s_lf_material)] = "";
 static bool          s_lf_queued_archived = false;
 
+// The row of the spool linkSuggestOpenList() named, tapped on the user's
+// behalf: the same two ways a real tap takes. Nothing when the list no longer
+// holds it - then the list itself is the answer.
+static void linkPickRow(int spool_id) {
+  for (int i = 0; i < link_spool_count; i++) {
+    if (link_spools[i].id != spool_id) continue;
+    if (link_spools[i].from_cache) link_row_refresh_pending = i;
+    else                           linkRowChosen(i);
+    return;
+  }
+  logSDf("link fetch: suggested spool %d is not in the list any more", spool_id);
+}
+
 static void linkFetchFinish(bool ok) {
   const LinkFetchNext next = s_lf_next;
   s_lf_next = LF_NEXT_NONE;
+  const int pick = s_lf_pick_id;
+  s_lf_pick_id = 0;
   switch (next) {
     case LF_NEXT_DIRECT_LIST:
       if (ok) showFilteredSpoolList("", "", "");
+      if (ok && pick > 0) linkPickRow(pick);
       break;
     case LF_NEXT_VENDOR_LIST:
       if (ok) showVendorList();
@@ -946,7 +972,10 @@ static void linkFetchRun(bool is_bambu, const char* material_filter, bool archiv
     linkWaitCardShow();
     return;
   }
-  if (s_lf_state != LF_IDLE) return;   // the card is up, it swallows the second tap
+  if (s_lf_state != LF_IDLE) {   // the card is up, it swallows the second tap
+    s_lf_pick_id = 0;            // and the pick belongs to no list
+    return;
+  }
   s_lf_next = next;
   const LinkFetch f = fetchAllSpoolsForLink(is_bambu, material_filter, archived_only);
   if (f != LINK_FETCH_PENDING) linkFetchFinish(f == LINK_FETCH_DONE);
@@ -2948,6 +2977,67 @@ void showFilteredSpoolList(const char* vendor_name, const char* material_prefix,
 }
 
 // ============================================================
+//  THE SUGGESTION OF THE UNKNOWN SPOOL CARD
+//
+//  The top of the list above, without the list: the card that opens when an
+//  unknown Bambu spool is put down names the spools "Link" would offer first.
+//  One rule for both, so the card never suggests what the list would bury.
+// ============================================================
+
+// What showLinkEntryPopup() resets before a Bambu link, without its screen.
+static void linkBambuFlowBegin() {
+  link_selected_material[0] = 0;
+  link_selected_material_full[0] = 0;
+  link_stage3_shown = false;
+  link_flow_is_bambu = true;
+  link_id_input[0] = '\0';
+  copy_flow_via_list = false;
+}
+
+static void candidateFromRow(LinkCandidate& c, const UnlinkedSpool& s, bool weight_hit) {
+  c.id = s.id;
+  if (s.material[0]) joinMaterialName(s.material, s.name, c.name, sizeof(c.name));
+  else               snprintf(c.name, sizeof(c.name), "%s", s.name);
+  snprintf(c.color_hex, sizeof(c.color_hex), "%s", s.color_hex);
+  c.unused = (s.remaining <= 0 && s.total > 0);
+  c.weight_g = c.unused ? s.total : s.remaining;
+  c.weight_hit = weight_hit;
+}
+
+int linkSuggestCandidates(LinkCandidate* out, int max) {
+  linkBambuFlowBegin();
+  if (fetchAllSpoolsForLink(true, g_tag.material, false, true) != LINK_FETCH_DONE) {
+    linkSpoolsFree();
+    return -1;
+  }
+  // The fallback without the material filter lists other filaments: none of
+  // them is this spool.
+  int total = 0;
+  const float gross = linkListGross();
+  for (int k = 0; !link_material_ignored && k < LINK_ROW_RANKS * link_spool_count; k++) {
+    const int rank = LINK_ROW_RANKS - 1 - k / link_spool_count;
+    const UnlinkedSpool& s = link_spools[k % link_spool_count];
+    if (!linkRowMatches(s, "", "", "")) continue;
+    const bool weight_hit = linkWeightHit(s, gross);
+    if (linkRowRank(s.article_hit, weight_hit) != rank) continue;
+    if (tagSpoolCompare(g_tag.material, g_tag.color_hex, s.material, s.name, s.vendor,
+                        s.color_hex, s.article_hit).any()) continue;
+    if (total < max) candidateFromRow(out[total], s, weight_hit);
+    total++;
+  }
+  logSDf("link suggest: %d candidate(s) for the tag", total);
+  linkSpoolsFree();
+  return total;
+}
+
+void linkSuggestOpenList(int pick_spool_id) {
+  linkBambuFlowBegin();
+  // The list opens from linkFetchFinish(), now or once the worker has it.
+  s_lf_pick_id = pick_spool_id;
+  linkFetchRun(true, g_tag.material, false, LF_NEXT_DIRECT_LIST);
+}
+
+// ============================================================
 //  LINK-FLOW: FLOW B PFAD 2 - MATERIAL-AUSWAHL (Stufe 2)
 // ============================================================
 void showMaterialList(const char* vendor_name) {
@@ -3603,7 +3693,8 @@ void hideSpoolFlowOverlays() {
     scr_link_entry, scr_link_id, scr_link_warn_a, scr_link_warn_b,
     scr_link_vendor, scr_link_mat, scr_link_mat_sub, scr_link_spools,
     scr_link_list, scr_link_confirm, scr_tag_move,
-    scr_copy_entry, scr_copy_list, scr_copy_confirm, tagCreatePopupScreen(), dbPickScreen()
+    scr_copy_entry, scr_copy_list, scr_copy_confirm, tagCreatePopupScreen(), dbPickScreen(),
+    unknownSpoolPopupScreen()
   };
   for (unsigned i = 0; i < sizeof(link_scr) / sizeof(link_scr[0]); i++)
     if (link_scr[i]) {
@@ -3616,6 +3707,7 @@ void hideSpoolFlowOverlays() {
 
 void deleteSpoolFlowOverlays() {
   closeTagCreatePopup();
+  closeUnknownSpoolPopup();
   dbPickClose();
   releaseScreen(&scr_link_confirm);
   releaseScreen(&scr_tag_move);

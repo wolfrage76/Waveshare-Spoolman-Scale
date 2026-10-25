@@ -51,6 +51,7 @@ static bool      pending = false;
 static int       pending_id = 0;
 static TagFormat pending_fmt = TAG_FMT_ACE;
 static bool      pending_link = false;
+static char      pending_uid[26] = "";   // the erase's tag, "" for whichever lies there
 static char      state[12] = "idle";
 static char      message[96] = "";
 static uint8_t   result = TW_NONE;
@@ -143,6 +144,7 @@ bool tagWriteRequest(int spool_id, TagFormat fmt, bool link) {
   pending_id   = spool_id;
   pending_fmt  = fmt;
   pending_link = link;
+  pending_uid[0] = 0;
   pending     = true;
   result      = TW_BUSY;
   memset(&report, 0, sizeof(report));
@@ -156,6 +158,20 @@ bool tagWriteRequest(int spool_id, TagFormat fmt, bool link) {
   else
     snprintf(message, sizeof(message), "Writing spool %d...", spool_id);
   return true;
+}
+
+bool tagWriteRequestErase(const char* uid_expected) {
+  if (!tagWriteRequest(0, TAG_FMT_ERASE, false)) return false;
+  snprintf(pending_uid, sizeof(pending_uid), "%s", uid_expected ? uid_expected : "");
+  return true;
+}
+
+// "04:A2:..:7F", the spelling g_tag.uid_str and the cache use.
+static void uidToStr(const uint8_t *uid, uint8_t uid_len, char *out, size_t n) {
+  int u = 0;
+  out[0] = 0;
+  for (int i = 0; i < uid_len && u < (int)n - 3; i++)
+    u += snprintf(out + u, n - u, i ? ":%02X" : "%02X", uid[i]);
 }
 
 // Neither backend stores print temperatures, so they come from the family the
@@ -1361,6 +1377,13 @@ void tagWriteTick() {
   if (!selectWritableTag(uid, &uid_len)) return;
 
   if (pending_fmt == TAG_FMT_ERASE) {
+    char here[26];
+    uidToStr(uid, uid_len, here, sizeof(here));
+    if (pending_uid[0] && strcmp(pending_uid, here) != 0) {
+      logSDf("TagWrite: erase was for %s, %s lies on the reader - not erased", pending_uid, here);
+      finish("error", "A different tag is on the reader - nothing erased", TW_ERR_OTHER_TAG);
+      return;
+    }
     const bool erased = eraseTag();
     cache_dirty = true;
     report.erase = true;
@@ -1398,9 +1421,7 @@ void tagWriteTick() {
 
   if (pending_link) {
     char uid_str[26];
-    int u = 0;
-    for (int i = 0; i < uid_len && u < (int)sizeof(uid_str) - 3; i++)
-      u += snprintf(uid_str + u, sizeof(uid_str) - u, i ? ":%02X" : "%02X", uid[i]);
+    uidToStr(uid, uid_len, uid_str, sizeof(uid_str));
     char note[48] = "";
     // Spoolman links the way the device's link flow does. The plain field
     // write below has no key for Spoolman's own tag relation, the source every

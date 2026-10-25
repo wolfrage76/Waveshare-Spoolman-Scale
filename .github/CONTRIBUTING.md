@@ -16,7 +16,7 @@ If a tool writes code for you, point it at this file and let it run
 
 - **Small fix** (a typo, an obvious bug, a few lines): open a pull request directly.
 - **Anything bigger** (a feature, a new screen, a change to NFC, the scale or a
-  backend): open an issue or ask in the [Discord](https://discord.gg/xadskCrPFu)
+  backend): open an issue or ask in the [Discord](https://discord.gg/K3KmKnrWhP)
   first and wait for a short OK. It saves you work: sometimes the problem is
   already being solved on `dev`, or it needs a different layer than it seems.
 

@@ -13,6 +13,7 @@
 #include "ui/ble_devices_screen.h"
 #include "ui/reboot_popup.h"
 #include "ui/header_status.h"
+#include "ui/info_screen.h"
 #include "ui/theme.h"
 #include "reboot_popup.h"
 #include "ui_common.h"
@@ -26,6 +27,33 @@
 //  screen keeps room for what a Bluetooth page grows later, the
 //  scale's own name, say.
 // ============================================================
+
+// Title and subtitle of the row below, by what is set up: no printer, one
+// of ours (then its labels, and the ribbon where it takes one), another one.
+static void recommendTexts(StringID* title, StringID* sub) {
+  const LabelPrinterConfig c = labelPrinterLoadConfig();
+  if (!labelPrinterConfigured(c)) { *title = STR_BT_REC_NONE; *sub = STR_BT_REC_NONE_SUB; return; }
+  if (!labelPrinterRecommended(c.model)) { *title = STR_BT_REC_OTHER; *sub = STR_BT_REC_OTHER_SUB; return; }
+  *title = labelPrinterProfile(c.model).direct_thermal ? STR_BT_REC_LABELS : STR_BT_REC_RIBBON;
+  *sub = STR_BT_REC_SUPPLY_SUB;
+}
+
+// The way to the manual's recommended printers and their labels, which the
+// row words for the printer at hand. All three open the same page.
+static void recommendRow(lv_obj_t* list) {
+  StringID title, sub;
+  recommendTexts(&title, &sub);
+  char buf_t[40]; copyT(buf_t, sizeof(buf_t), title);
+  char buf_s[64]; copyT(buf_s, sizeof(buf_s), sub);
+  // The green subtitle of an active row, but the frame of a plain one
+  // (Nikolai, 22.10.2026).
+  lv_obj_t* btn = makeListBtn(list, LV_SYMBOL_LIST, buf_t, buf_s, true);
+  lv_obj_set_style_border_color(btn, lv_color_hex(UI_COL_ROW_PRESSED), 0);
+  lv_obj_add_event_cb(btn, [](lv_event_t* e) {
+    logSD("BTN: Bluetooth -> recommended printers QR");
+    showQRPopup(QR_PRINTERS);
+  }, LV_EVENT_CLICKED, NULL);
+}
 
 void closeBluetoothScreen() {
   if (scr_bluetooth) { lv_obj_del(scr_bluetooth); scr_bluetooth = nullptr; }
@@ -100,6 +128,8 @@ void buildBluetoothScreen() {
       show_printer_pending = true;
     }, LV_EVENT_CLICKED, NULL);
   }
+  // Also with the switch off: it answers what Bluetooth is for here.
+  recommendRow(list);
 }
 
 void handleBluetoothDeferredActions() {

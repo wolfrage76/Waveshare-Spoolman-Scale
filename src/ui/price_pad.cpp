@@ -63,27 +63,6 @@ static void onBackspace(lv_event_t*) {
   refreshInput();
 }
 
-static lv_obj_t* padButton(int x, int y, int w, int h, uint32_t bg, uint32_t bg_pressed) {
-  lv_obj_t* b = lv_btn_create(s_pad);
-  lv_obj_set_size(b, w, h);
-  lv_obj_set_pos(b, x, y);
-  lv_obj_set_style_bg_color(b, lv_color_hex(bg), 0);
-  lv_obj_set_style_bg_color(b, lv_color_hex(bg_pressed), LV_STATE_PRESSED);
-  lv_obj_set_style_radius(b, UI_RADIUS_INPUT, 0);
-  lv_obj_set_style_shadow_width(b, 0, 0);
-  lv_obj_set_style_border_width(b, 1, 0);
-  lv_obj_set_style_border_color(b, lv_color_hex(UI_COL_LINE_SOFT), 0);
-  return b;
-}
-
-static void padLabel(lv_obj_t* btn, const char* text, uint32_t col, const lv_font_t* font) {
-  lv_obj_t* l = lv_label_create(btn);
-  lv_label_set_text(l, text);
-  lv_obj_set_style_text_color(l, lv_color_hex(col), 0);
-  lv_obj_set_style_text_font(l, font, 0);
-  lv_obj_center(l);
-}
-
 static void buildHead() {
   lv_obj_t* title = lv_label_create(s_pad);
   lv_label_set_text(title, T(STR_PRICE_PAD_TITLE));
@@ -119,7 +98,7 @@ static void buildKeys() {
   for (int i = 0; i < 12; i++) {
     const int x = PP_EDGE + (i % 3) * (PP_KEY_W + PP_GAP);
     const int y = PP_KEYS_Y + (i / 3) * (PP_KEY_H + PP_GAP);
-    lv_obj_t* b = padButton(x, y, PP_KEY_W, PP_KEY_H, UI_COL_SURFACE, UI_COL_LINE);
+    lv_obj_t* b = padButton(s_pad, x, y, PP_KEY_W, PP_KEY_H, UI_COL_SURFACE, UI_COL_LINE);
     if (KEYS[i][0]) {
       padLabel(b, KEYS[i], UI_COL_INK, UI_FONT_HEADLINE);
       lv_obj_add_event_cb(b, onKey, LV_EVENT_CLICKED, NULL);
@@ -137,14 +116,14 @@ static void buildAnswers() {
   const int cancel_h = UI_TOUCH_MIN + 10;
   const int ok_h     = keys_h - cancel_h - PP_GAP;
 
-  lv_obj_t* ok = padButton(PP_COL_X, PP_KEYS_Y, PP_COL_W, ok_h, UI_COL_OK_BG, UI_COL_OK_BG_PRESSED);
+  lv_obj_t* ok = padButton(s_pad, PP_COL_X, PP_KEYS_Y, PP_COL_W, ok_h, UI_COL_OK_BG, UI_COL_OK_BG_PRESSED);
   padLabel(ok, T(STR_BTN_OK), UI_COL_OK_TEXT, UI_FONT_BODY);
   lv_obj_add_event_cb(ok, [](lv_event_t*) {
     if (s_pad) lv_obj_add_flag(s_pad, LV_OBJ_FLAG_HIDDEN);
     s_answer = PA_OK;
   }, LV_EVENT_CLICKED, NULL);
 
-  lv_obj_t* no = padButton(PP_COL_X, PP_KEYS_Y + ok_h + PP_GAP, PP_COL_W, cancel_h,
+  lv_obj_t* no = padButton(s_pad, PP_COL_X, PP_KEYS_Y + ok_h + PP_GAP, PP_COL_W, cancel_h,
                            UI_COL_BAD_BG, UI_COL_BAD_BG_PRESSED);
   padLabel(no, T(STR_CANCEL), UI_COL_BAD_TEXT, UI_FONT_SMALL);
   lv_obj_add_event_cb(no, [](lv_event_t*) {
@@ -165,15 +144,8 @@ void showPricePad(float current, void (*done)(float price)) {
   if (fits) snprintf(s_input, sizeof(s_input), "%s", shown);
   else      s_input[0] = '\0';
 
-  s_pad = lv_obj_create(lv_scr_act());
-  lv_obj_set_size(s_pad, 480, 320);
-  lv_obj_set_pos(s_pad, 0, 0);
-  lv_obj_set_style_bg_color(s_pad, lv_color_hex(UI_COL_GROUND), 0);
-  lv_obj_set_style_bg_opa(s_pad, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_width(s_pad, 0, 0);
-  lv_obj_set_style_radius(s_pad, 0, 0);
-  lv_obj_set_style_pad_all(s_pad, 0, 0);
-  lv_obj_clear_flag(s_pad, LV_OBJ_FLAG_SCROLLABLE);
+  s_pad = buildOverlayScreen();
+  lv_obj_clear_flag(s_pad, LV_OBJ_FLAG_HIDDEN);
 
   buildHead();
   buildKeys();

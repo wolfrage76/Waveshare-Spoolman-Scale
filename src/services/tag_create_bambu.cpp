@@ -77,6 +77,7 @@ bool tagCreateInputFromBambu(TagCreateInput* in) {
   tagCreateSplitProduct(in);
   in->net_weight_g   = (int)(g_tag.spool_weight + 0.5f);
   in->spool_weight_g = BAMBU_CORE_WEIGHT_G;
+  in->spool_weight_default = true;
   in->diameter_mm    = g_tag.diameter_mm;
   in->temp_min       = g_tag.temp_min;
   in->temp_max       = g_tag.temp_max;

@@ -31,6 +31,7 @@ enum SettingScreen : uint8_t {
   OPEN_FLM_FIELDS,
   OPEN_AMS_ASSIGN,
   OPEN_BB_DRIED,
+  OPEN_TAG_COMP,
 };
 
 enum SettingKind : uint8_t {

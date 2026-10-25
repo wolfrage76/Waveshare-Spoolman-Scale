@@ -533,7 +533,7 @@ float resolveInitial(JsonVariantConst spool) {
   return 1000.0f;
 }
 
-static const char* tareSourceName(uint8_t s) {
+const char* tareSourceName(uint8_t s) {
   switch (s) {
     case TARE_SPOOL:    return "spool";
     case TARE_FILAMENT: return "filament";
@@ -789,6 +789,14 @@ static char s_last_query[48] = {0};
 // failed like that, the recheck then found the spool, took the link for a
 // foreign one, and wrote the tag and asked for the second tag a second time.
 bool s_verdict_unknown = false;
+
+// Stricter than the above: "not in the inventory" from a scan whose active
+// list and archive both came in whole, or from the uid index. Only this one
+// may invite a new spool - an archive that never answered can still hold the
+// spool, and creating it again would make a duplicate.
+bool s_verdict_certain = false;
+
+bool lookupUnknownIsCertain() { return s_verdict_certain; }
 
 // Whether the last lookup ended on a server it could not reach. The status
 // line reads it: without it the resting text said "not in Spoolman" about a
@@ -1147,6 +1155,7 @@ void querySpoolman(const char* tray_uuid, LookupOrigin origin) {
   s_last_query[sizeof(s_last_query) - 1] = '\0';
   // Only the one line below "Truly not found" sets it again.
   s_verdict_unknown = false;
+  s_verdict_certain = false;
   s_lost_connection = false;
   s_recheck_end_ms = 0;
   s_recheck_gap_ms = TAG_RECHECK_MS;

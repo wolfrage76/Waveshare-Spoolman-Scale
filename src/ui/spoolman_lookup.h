@@ -25,6 +25,13 @@ void querySpoolman(const char* tray_uuid, LookupOrigin origin = LOOKUP_FROM_OTHE
 // and sm_found says "not found" only because it was reset.
 bool lookupPending();
 
+// Whether the last verdict was "not in the inventory" beyond doubt: the uid
+// index answered, or the active list and the archive both came in whole.
+bool lookupUnknownIsCertain();
+
+// "spool", "filament", "vendor" or "none" for a TareSource, for the log.
+const char* tareSourceName(uint8_t source);
+
 // What the caller of querySpoolman() does with the verdict. See LookupOrigin.
 void lookupFollowUp(LookupOrigin origin, const char* uid);
 

@@ -207,14 +207,28 @@ extern bool g_card_uids_write;
 // relinked spool by spool to get anything out of it.
 extern bool g_hw_uid_write;
 
-// Whether a Bambu spool's tray uuid also goes into extra.tag while Spoolman's
-// native tags are the tag source. OpenSpoolman reads that field and knows
-// nothing of the relation yet, and has had no update in a long time. On, the
-// field is created when missing; off, extra.tag is left alone entirely.
-// Decided once by tagFieldAutoSelect() when it is not in NVS: on when the
-// server already has extra.tag, i.e. some tool already uses it.
+// Which extra field also gets a value while Spoolman's native tags are the
+// tag source - the companion field. Tools that know nothing of the relation
+// keep reading a field:
+//   TAG      extra.tag, the tray uuid of a Bambu spool. OpenSpoolman finds a
+//            spool by it and has had no update in a long time.
+//   NFCID    extra.nfc_id, written as the tag field nfc_id would write it: the
+//            tray uuid of a Bambu spool, the chip uid of any other tag. For
+//            setups whose own services poll the printers and read that field.
+// The field is created when missing; OFF leaves both alone entirely.
+// Decided once by tagFieldAutoSelect() when it is not in NVS: extra.tag when
+// the server already has it, i.e. some tool already uses it.
+enum TagCompanion : uint8_t {
+  TAG_COMP_OFF   = 0,
+  TAG_COMP_TAG   = 1,
+  TAG_COMP_NFCID = 2,
+  TAG_COMP_COUNT = 3
+};
+#define TAG_COMP_KEY "tag_comp"
+extern uint8_t g_tag_comp;
+// The switch this choice replaced, extra.tag on or off. Read once by
+// tagCompanionMigrate() and left in NVS, so a downgrade still finds it.
 #define OSM_TAG_KEY "osm_tag"
-extern bool g_osm_tag;
 
 // Whether the scale asks for a second tag right after a link succeeded.
 // Off by default.
@@ -234,6 +248,13 @@ extern bool g_osm_tag;
 // is not a separate setting - it runs through the same link as the first one,
 // so g_tagwrite_mode asks for it the same way.
 extern bool g_tag2_ask;
+
+// Whether a spool the inventory does not know opens a card when it is put
+// down, with the step that most likely comes next: link a matching spool
+// without a tag, or create one from the tag. On by default - the two buttons
+// on the main screen that change their meaning are easy to miss. Off leaves
+// only those buttons, as before.
+extern bool g_unk_ask;
 
 // Whether the scale offers the AMS bay picker after weighing a spool, for the
 // backends that can pin a spool to a bay. Off by default: the assignment also

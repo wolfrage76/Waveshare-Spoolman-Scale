@@ -3,6 +3,7 @@
 #include <lvgl.h>
 
 #include "services/spool_color.h"
+#include "services/spool_start.h"
 #include "services/text_util.h"
 #include "theme.h"
 
@@ -93,6 +94,25 @@ void swatchPaint(lv_obj_t* obj, const SpoolColor& c);
 // paint as SWATCH_FALLBACK_COLOR rather than as a random colour off the stack.
 void swatchPaintHex(lv_obj_t* obj, const char* hex);
 
+// The weight line of a create card (services/spool_start.h): the grams as
+// they will be filed and, where the reading could not be taken as the
+// spool's, why. `tare_inherited` turns a reading too heavy for the empty
+// spool into the hint to check that inherited weight.
+void spoolStartText(const SpoolStart& s, bool tare_inherited, char* out, size_t out_size);
+
+// A label of one line, as wide as its text up to `max_w` and ending in dots
+// beyond that. LVGL writes the dots on a label of fixed size only: one that
+// sizes itself to its content under a max_width style is cut at the edge
+// instead, and one with a fixed width but content height wraps to a second
+// line. The caller sets the colour.
+lv_obj_t* labelOneLine(lv_obj_t* parent, const char* text, const lv_font_t* font, int max_w);
+
+// A key of the number pads (tare_entry.cpp, price_pad.cpp, spool_id_pad.cpp):
+// a flat button with a soft outline, and its caption centred in it. One look
+// for the three pads.
+lv_obj_t* padButton(lv_obj_t* parent, int x, int y, int w, int h, uint32_t bg, uint32_t bg_pressed);
+lv_obj_t* padLabel(lv_obj_t* btn, const char* text, uint32_t col, const lv_font_t* font);
+
 // The colour in the middle of a painted swatch as 0xRRGGBB, for choosing the
 // colour of text drawn across it.
 uint32_t swatchCenterRgb(const SpoolColor& c);
@@ -136,6 +156,11 @@ lv_obj_t* addInfoRow(lv_obj_t* parent, int y, const char* label,
 lv_obj_t* makeListBtn(lv_obj_t* list, const char* ico_sym, const char* title,
                       const char* sub, bool toggle_active = false,
                       lv_obj_t** out_help = nullptr);
+
+// A row of a one-of-several picker: the arrow makeListBtn() put last turns
+// into a tick on the chosen entry and into nothing on the rest. The help
+// button is built before the arrow, so a row with both still ends in the arrow.
+void markListBtnChosen(lv_obj_t* btn, bool active);
 
 // ---------------------------------------------------------------------------
 //  Settings rows, built from services/settings_registry.h

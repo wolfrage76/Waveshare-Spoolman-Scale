@@ -19,6 +19,7 @@
 #include "dried_action.h"
 #include "more_info_screen.h"
 #include "app/deferred_actions.h"
+#include "app/id_spool.h"
 #include "spoolman_screen.h"
 #include "tare_entry.h"
 #include "lang.h"
@@ -88,8 +89,16 @@ static int        s_job_spool_id  = 0;  // ... carried with the parked write
 static void tareFollowUp();
 static void tareDropFollowUp();
 static void askFreeTag();
+// The question follows the archive a pass later: the popup that asked for
+// the archive is deleted at the end of its pass, and the pool holds one
+// question at a time.
+static bool s_ask_free_tag_pending = false;
 
 void handleConfirmPopupDeferredActions() {
+  if (s_ask_free_tag_pending) {
+    s_ask_free_tag_pending = false;
+    askFreeTag();
+  }
   if (s_job == CJ_NONE) return;
   const ConfirmJob job = s_job;
   s_job = CJ_NONE;
@@ -118,7 +127,7 @@ void handleConfirmPopupDeferredActions() {
     case CJ_TARE_FILAMENT: patchFilamentSpoolWeight(s_job_value); tareFollowUp(); break;
     case CJ_TARE_VENDOR:   patchVendorSpoolWeight(s_job_value);   tareFollowUp(); break;
     case CJ_ARCHIVE:
-      if (patchArchiveSpool()) askFreeTag();
+      if (patchArchiveSpool()) s_ask_free_tag_pending = true;
       break;
     case CJ_CAP_RAISE:
       // Order matters: the label first, so the weight that follows has room.
@@ -142,6 +151,9 @@ void handleConfirmPopupDeferredActions() {
 // and a spool lifted off meanwhile clears sm_id, so the unlink is dropped
 // rather than sent to whatever lies there then.
 static int s_free_tag_spool_id = 0;
+// The tag the erase line was about, as the cache spelt it; empty when the
+// question had no erase line.
+static char s_free_tag_uid[26] = "";
 
 // Asked once the archive is through, never before: a failed archive must not
 // leave a spool that is still active without its tag. Only for a spool that
@@ -153,6 +165,7 @@ static void askFreeTag() {
   s_free_tag_spool_id = sm_id;
   char msg[224];
   const bool erase = tagIsWritableNtag() && tagCachedHasRecord();
+  snprintf(s_free_tag_uid, sizeof(s_free_tag_uid), "%s", erase ? tagCachedUid() : "");
   snprintf(msg, sizeof(msg), erase ? "%s\n\n%s" : "%s", T(STR_FREE_TAG_ASK),
            T(STR_FREE_TAG_ERASE_LINE));
   logSDf("Archive: asking to release the tag of spool %d (erase=%d)", sm_id, erase ? 1 : 0);
@@ -167,7 +180,7 @@ static void freeTagConfirmed() {
   }
   // Every tag of the spool, the other flange too: an archived spool keeps
   // none. Only the one on the reader can be erased, the other keeps its data.
-  requestSpoolUnlink(s_free_tag_spool_id, true, true);
+  requestSpoolUnlink(s_free_tag_spool_id, true, true, s_free_tag_uid);
 }
 
 // The weight the scope buttons below will store. Normally whatever is on the
@@ -763,6 +776,14 @@ void showConfirmPopup(const char* msg, int action) {
     lv_obj_set_style_text_font(l6, &lv_font_montserrat_ext_14, 0);
     lv_obj_set_style_text_align(l6, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(l6);
+
+    // A spool shown by its id is never weighed on its own, so the switch has
+    // nothing to switch here; the right-hand button takes the row.
+    if (idSpoolActive()) {
+      lv_obj_add_flag(btn5, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_set_width(btn6, BOX_W - 2*EDGE);
+      lv_obj_set_x(btn6, XL);
+    }
 
     // ── Row 4: cancel (full width) ──
     const int BW_FULL = BOX_W - 2*EDGE;

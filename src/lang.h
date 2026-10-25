@@ -1295,8 +1295,6 @@ enum StringID {
   // The printer page in the browser
   STR_W_NAV_PRINTER,          // the tab
   STR_W_P_BLE_HINT,           // under the master switch
-  STR_W_P_SUPPORTED,          // card: which printers the scale can drive
-  STR_W_P_TESTED,             // the M220's verdict
   STR_W_P_SUPPORTED_HINT,
   STR_W_P_DEVICES,            // the device list's label
   STR_BT_SCAN_WEB,            // the scan button
@@ -1372,10 +1370,6 @@ enum StringID {
   STR_LBL_L_ADDED,
   STR_LBL_TEST_BAND,
   STR_LBL_TEST_DONATE,
-  // Spoolman: extra.tag for OpenSpoolman beside the native tags
-  STR_OSM_TAG,
-  STR_OSM_TAG_SUB,
-  STR_OSM_TAG_INFO,
   // Extra fields screen: the verdict at the top
   STR_EF_HEAD_OK,
   STR_EF_HEAD_MISSING,
@@ -1519,8 +1513,6 @@ enum StringID {
   STR_W_SHOT_AT_PANEL,
   STR_W_SHOT_FAIL,
   STR_W_SHOT_EMPTY,
-  STR_TAGNEW_META_ART,
-  STR_TAGNEW_META,
   STR_TAGNEW_SEARCHING,
   STR_TAGNEW_FOUND,
   STR_TAGNEW_FROM_DB,
@@ -1594,10 +1586,8 @@ enum StringID {
   STR_PRN_ERR_PRINTER,
   STR_PRN_ERR_MODEL_MISMATCH,
   STR_PRN_ERR_MODEL_UNKNOWN,
-  STR_PRN_RIBBON_SHORT,
   STR_W_P_RESTART_HINT,
   STR_PRN_ERR_BLE_RESTART,
-  STR_W_P_EXPERIMENTAL,
   STR_W_P_CAL_FILLS,
   STR_W_NAV_LABEL,
   STR_W_L_TEMPLATE,
@@ -1670,6 +1660,147 @@ enum StringID {
   STR_FREE_TAG_ASK,
   STR_FREE_TAG_ERASE_LINE,
   STR_BTN_FREE_TAG,
+  // Label editor: more arrangements, upright labels, a line budget
+  STR_W_L_P_MATERIAL_BIG,
+  STR_W_L_P_TEXT_ONLY,
+  STR_W_L_ORIENT,
+  STR_W_L_FLAT,
+  STR_W_L_UPRIGHT,
+  STR_W_L_CAP,
+  STR_W_L_CAP_FULL,
+  STR_W_L_CAP_OVER,
+  // Label editor: more fields, an own line
+  STR_LBL_L_EMPTY,
+  STR_LBL_L_NET,
+  STR_LBL_L_NOZZLE,
+  STR_LBL_L_TEMPS,
+  STR_LBL_L_STORED,
+  STR_LBL_L_DRIED,
+  STR_W_L_F_SPOOL_W,
+  STR_W_L_F_NET_W,
+  STR_W_L_F_TEMPS,
+  STR_W_L_F_LOCATION,
+  STR_W_L_F_DRIED,
+  STR_W_L_F_TEXT,
+  STR_W_L_TEXT_HINT,
+  STR_W_L_CHANGE_HINT,
+  // Label editor: the filament's label
+  STR_W_L_KIND,
+  STR_W_L_KIND_SPOOL,
+  STR_W_L_KIND_FILAMENT,
+  STR_W_L_KIND_HINT,
+  STR_W_L_FIL_NO_PAGE,
+  // The print sheet on the scale
+  STR_PS_PRINT,
+  STR_PS_ASK,
+  STR_PS_ASK_SUB,
+  STR_PS_SERVER,
+  STR_PS_SERVER_SUB,
+  STR_PS_MORE_WEB,
+  // A fact on a printed label, caption and value on one line
+  STR_LBL_FACT_FMT,
+  // Label editor: the drying, and the switches that print nothing
+  STR_LBL_L_DRYING,
+  STR_W_L_F_DRYING,
+  STR_W_L_GAP_SPOOL,
+  STR_W_L_GAP_BACKEND,
+  // Printer page: how a model prints, and the recommended printers
+  STR_W_P_METHOD_DIRECT,
+  STR_W_P_METHOD_RIBBON,
+  STR_W_P_SHOP_TITLE,
+  STR_W_P_SHOP_HINT,
+  // Bluetooth screen: the way to the recommended printers
+  STR_BT_REC_NONE,
+  STR_BT_REC_NONE_SUB,
+  STR_BT_REC_OTHER,
+  STR_BT_REC_OTHER_SUB,
+  STR_BT_REC_LABELS,
+  STR_BT_REC_RIBBON,
+  STR_BT_REC_SUPPLY_SUB,
+  // Printer page: the box worded for the printer at hand
+  STR_W_P_REC_NONE_TEXT,
+  STR_W_P_REC_NONE_BTN,
+  STR_W_P_REC_OTHER_TEXT,
+  STR_W_P_REC_OTHER_BTN,
+  STR_W_P_REC_M220_TEXT,
+  STR_W_P_REC_LABELS_BTN,
+  STR_W_P_REC_M2_TEXT,
+  STR_W_P_REC_RIBBON_BTN,
+  // Tag erase refused: another tag than the one asked about lies on the reader
+  STR_TW_ERR_OTHER_TAG,
+  // Printer screen: the model and label stock grids
+  STR_PRN_TAG_RECOMMENDED,
+  STR_PRN_TAG_EXPERIMENTAL,
+  STR_PRN_MEDIA_NO_LAYOUT,
+  // Spoolman: the companion field beside the native tags
+  STR_TAG_COMP,
+  STR_TAG_COMP_INFO,
+  STR_TAG_COMP_OFF,
+  STR_TAG_COMP_OFF_SUB,
+  STR_TAG_COMP_TAG,
+  STR_TAG_COMP_TAG_SUB,
+  STR_TAG_COMP_NFCID,
+  STR_TAG_COMP_NFCID_SUB,
+  // Printer page: only BLE printers, and the way to what a printer needs
+  STR_W_P_BLE_ONLY,
+  STR_W_P_NEEDS_LINK,
+  // Printer page: the Bluetooth bar, the device tile and the model cards
+  STR_W_P_RESTART_NEEDED,     // the bar's pill while the radio waits for a restart
+  STR_W_P_EMPTY_HINT,         // the tile without a printer
+  STR_W_P_PICK_HINT,          // the tile without a printer, after a scan found some
+  STR_W_P_CHANGE,             // the tile's scan button once there is a printer
+  STR_W_P_SPEC_RIBBON,        // a model card's last word: prints through a ribbon
+
+  // The card for a spool the inventory does not know
+  STR_UNK_ASK,           // the settings row
+  STR_UNK_ASK_SUB,       // its subtitle
+  STR_UNK_ASK_INFO,      // its help text
+  STR_UNK_SUGGEST_ONE,   // caption over the one matching spool
+  STR_UNK_SUGGEST_MANY,  // caption over the chips, %d spools
+  STR_UNK_SUGGEST_NEW,   // caption over the create note
+  STR_UNK_STORED_HIT,    // the grams on file (%s, as the list row), equal to the scale
+  STR_UNK_STORED,        // the grams on file (%s, as the list row)
+  STR_UNK_NONE_LINE,     // the create note, first line
+  STR_UNK_NONE_SUB,      // the create note, second line
+  STR_UNK_MORE,          // the last chip, %d further spools
+  STR_UNK_BTN_ALL,       // button: the whole link list
+  STR_UNK_BTN_OTHER,     // button: the tiles with every way
+  STR_UNK_BTN_WEIGH,     // button: close and only weigh
+  STR_UNK_TILE_COPY,     // tile: the copy entry
+  STR_UNK_NET,           // what lies on the pad, without the empty spool
+  STR_UNK_GROSS,         // what lies on the pad, all of it
+  STR_UNK_UID,           // an NTAG without data, by its chip
+  STR_UNK_NO_COLOR,      // the swatch of a tag that names no colour
+
+  // What a spool created off the pad starts with (ui_common.cpp spoolStartText)
+  STR_TAGNEW_W_OF,        // what is left of the label: used, or full on a default core
+  STR_TAGNEW_W_FULL,      // a full spool filing its measured weight
+  STR_TAGNEW_W_NOT,       // nothing on the pad: filed as full
+  STR_TAGNEW_W_NO_TARE,   // on the pad, but no empty spool weight to subtract
+  STR_TAGNEW_W_OVER,      // more than a full spool can weigh: filed as full
+  STR_TAGNEW_W_OVER_TARE, // the same, with an inherited empty spool to check
+  STR_COPY_CARD_TARE,     // copy card line 3: the weight line and the template's empty spool
+
+  // Printing on the PC through FilaMan (ui/pc_print_popup.cpp)
+  STR_PCP_TITLE,          // the card's title
+  STR_PCP_SUB,            // under it: what it takes on the PC
+  STR_PCP_SPOOL,          // the two kinds of label
+  STR_PCP_FILAMENT,
+  STR_PCP_SENDING,        // while the request is on its way
+  STR_PCP_SENT_TITLE,     // filed
+  STR_PCP_SENT_TEXT,      // what to do in the browser, quoting FilaMan's own button
+  STR_PCP_FAIL_TITLE,     // refused; FilaMan's own reason goes under it
+  STR_PCP_NO_ROUTE,       // a FilaMan before 1.4.3
+
+  // Spool by ID (ui/spool_id_pad.cpp, app/id_spool.cpp)
+  STR_BTN_SPOOL_BY_ID,        // the main screen's left slot while empty, and the pad's title
+  STR_IDPAD_INFO,             // beside the keys: where the id is, and that nothing saves on its own
+  STR_IDPAD_SEARCH,           // the pad's action button before a spool was found
+  STR_IDPAD_SEARCHING,        // in the answer column while the server is asked
+  STR_IDPAD_THIS_SPOOL,       // the action button once the spool is shown
+  STR_IDPAD_NOT_FOUND,        // %d: the id that was typed
+  STR_IDPAD_NOT_FOUND_HINT,   // under it
+  STR_ID_SPOOL_STATUS,        // the status line while a spool is shown by its id
 
   // The AMS board: its title, a name that stays as it is in every language,
   // and the line in the middle of the page until the server has answered

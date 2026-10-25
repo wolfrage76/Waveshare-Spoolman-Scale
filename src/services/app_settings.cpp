@@ -123,6 +123,9 @@ void loadPrefs() {
   // to ask twice, and a stale "on" from before the field was switched cannot
   // leak into a write. After settingsLoadAll(), which is what loads it.
   if (!tagFieldIsList()) g_card_uids_write = false;
+  // The old extra.tag switch, once. Also after settingsLoadAll(), which would
+  // otherwise read the absent new key as "off" and keep it that way.
+  tagCompanionMigrate();
 
   g_flm_bambu_tags = prefsGetBool("flm_btags", false);
   g_flm_ext_id     = prefsGetBool("flm_extid", true);

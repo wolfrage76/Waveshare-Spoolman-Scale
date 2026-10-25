@@ -87,6 +87,9 @@ static int findFilament(const char* base_url, const String& query, FilamentAccep
   f["material"]       = true;
   f["color_hex"]      = true;
   f["vendor"]["name"] = true;
+  // What a spool created under it is weighed against (tagCreateTare()).
+  f["spool_weight"]                 = true;
+  f["vendor"]["empty_spool_weight"] = true;
 
   JsonDocument doc;
   const int code = spoolmanGetJson(base_url, (String("/api/v1/filament?") + query).c_str(),
@@ -101,6 +104,8 @@ static int findFilament(const char* base_url, const String& query, FilamentAccep
     if (best == 0 || id < best) {
       best = id;
       snprintf(plan->name, sizeof(plan->name), "%s", fil["name"] | "");
+      plan->found_spool_weight_g  = (int)lroundf(fil["spool_weight"] | 0.0f);
+      plan->vendor_spool_weight_g = (int)lroundf(fil["vendor"]["empty_spool_weight"] | 0.0f);
     }
   }
   if (hits > 1) logSDf("Spoolman: %d filaments fit %s, taking #%d", hits, query.c_str(), best);
@@ -302,8 +307,12 @@ static int findVendor(const char* base_url, const char* vendor, TagFilamentPlan*
   const String path = String("/api/v1/vendor?") + exactTerm("name", vendor);
   const int code = spoolmanGetJson(base_url, path.c_str(), doc, SM_FIL_TIMEOUT_MS);
   if (code != 200) { plan->http_code = code; return -1; }
-  for (JsonObjectConst v : doc.as<JsonArrayConst>())
-    if (strcasecmp(v["name"] | "", vendor) == 0) return v["id"] | 0;
+  for (JsonObjectConst v : doc.as<JsonArrayConst>()) {
+    if (strcasecmp(v["name"] | "", vendor) != 0) continue;
+    // The brand's empty spool, for what the new spool is weighed against.
+    plan->vendor_spool_weight_g = (int)lroundf(v["empty_spool_weight"] | 0.0f);
+    return v["id"] | 0;
+  }
   return 0;
 }
 

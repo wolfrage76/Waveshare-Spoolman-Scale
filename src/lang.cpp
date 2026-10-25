@@ -2775,8 +2775,6 @@ const char* const STRINGS[][3] = {
   { "Nur bei Bedarf an: der Funk läuft, während ein Gerät ihn braucht, und wird danach freigegeben. Nach dem Einschalten braucht die Waage einmal einen Neustart.",
     "Only when needed: the radio runs while a device needs it and is released afterwards. After switching it on, the scale needs one restart.",
     "Seulement au besoin : la radio tourne tant qu'un appareil l'utilise, puis est libérée. Après l'activation, la balance a besoin d'un redémarrage." },  // STR_W_P_BLE_HINT
-  { "Unterstützte Drucker", "Supported printers", "Imprimantes prises en charge" },  // STR_W_P_SUPPORTED
-  { "getestet",             "tested",             "testée" },  // STR_W_P_TESTED
   { "Weitere Modelle kommen mit Rückmeldungen aus der Community.",
     "More models come with feedback from the community.",
     "D'autres modèles viendront avec les retours de la communauté." },  // STR_W_P_SUPPORTED_HINT
@@ -2942,11 +2940,6 @@ const char* const STRINGS[][3] = {
   { "Dieses Feature hat viel Zeit gekostet. Ich freue mich über eine Spende.",
     "This feature took a lot of time. I'd be glad about a donation.",
     "Cette fonction a pris beaucoup de temps. Un don me ferait plaisir." },  // STR_LBL_TEST_DONATE
-  { "Für OpenSpoolman",             "For OpenSpoolman",             "OpenSpoolman" },  // STR_OSM_TAG
-  { "Bambu-UUID auch in extra.tag", "Bambu UUID also in extra.tag", "UUID Bambu en extra.tag" },  // STR_OSM_TAG_SUB
-  { "OpenSpoolman kennt die nativen Tags von Spoolman noch nicht. Es findet eine Bambu-Spule über die UUID im Feld extra.tag.\n\nIst das an, schreibt die Waage die UUID beim Verknüpfen zusätzlich dort hinein und legt das Feld an, falls es fehlt. Andere Tags betrifft das nicht.",
-    "OpenSpoolman does not know Spoolman's native tags yet. It finds a Bambu spool by the UUID in the field extra.tag.\n\nWith this on, the scale also writes the UUID there when linking, and creates the field if it is missing. Other tags are not affected.",
-    "OpenSpoolman ne connaît pas encore les tags natifs. Il trouve une bobine Bambu par l'UUID dans extra.tag.\n\nActivé : la balance y écrit aussi l'UUID lors d'une liaison et crée le champ s'il manque. Les autres tags ne sont pas concernés." },  // STR_OSM_TAG_INFO
   { "Alles eingerichtet", "All set",            "Tout est prêt" },  // STR_EF_HEAD_OK
   { "Es fehlen Felder",   "Fields are missing", "Champs absents" },  // STR_EF_HEAD_MISSING
   { "Anlegen",            "Create",             "Créer" },  // STR_EF_BTN_CREATE
@@ -3224,12 +3217,6 @@ const char* const STRINGS[][3] = {
   { "Noch keine Screenshots.",
     "No screenshots yet.",
     "Aucune capture pour l'instant." },  // STR_W_SHOT_EMPTY
-  { "%s | %s | %.0f von %d g",
-    "%s | %s | %.0f of %d g",
-    "%s | %s | %.0f sur %d g" },  // STR_TAGNEW_META_ART
-  { "%s | %.0f von %d g",
-    "%s | %.0f of %d g",
-    "%s | %.0f sur %d g" },  // STR_TAGNEW_META
   { "Filament wird gesucht ...",
     "Looking for the filament ...",
     "Recherche du filament ..." },  // STR_TAGNEW_SEARCHING
@@ -3446,9 +3433,6 @@ const char* const STRINGS[][3] = {
   { "Dieses NIIMBOT-Modell kennt die Waage noch nicht. Bitte die Kennung aus dem Log melden.",
     "The scale does not know this NIIMBOT model yet. Please report the id from the log.",
     "Modèle NIIMBOT encore inconnu de la balance. Merci de signaler l'identifiant du journal." },  // STR_PRN_ERR_MODEL_UNKNOWN
-  { "Thermotransfer mit Farbband",
-    "Thermal transfer with a ribbon",
-    "Transfert thermique à ruban" },  // STR_PRN_RIBBON_SHORT
   // Bluetooth switched on in the browser while the stack cannot start
   { "Bluetooth ist eingeschaltet, braucht aber einmal einen Neustart der Waage: Der Funk-Speicher wurde beim Start freigegeben.",
     "Bluetooth is on but needs one restart of the scale: its radio memory was released at boot.",
@@ -3456,9 +3440,8 @@ const char* const STRINGS[][3] = {
   { "Bluetooth braucht zuerst einen Neustart der Waage.",
     "Bluetooth needs a restart of the scale first.",
     "Bluetooth exige d'abord un redémarrage." },  // STR_PRN_ERR_BLE_RESTART
-  // The printer page: the legend under the supported printers, and the line
-  // under the print position strip when the label fills the whole head
-  { "experimentell", "experimental", "expérimentale" },  // STR_W_P_EXPERIMENTAL
+  // The printer page: the line under the print position strip when the label
+  // fills the whole head
   { "Das Etikett füllt den ganzen Druckkopf, hier gibt es nichts zu verschieben.",
     "The label fills the whole print head, so there is nothing to move here.",
     "L'étiquette occupe toute la tête d'impression, il n'y a rien à décaler ici." },  // STR_W_P_CAL_FILLS
@@ -3481,9 +3464,9 @@ const char* const STRINGS[][3] = {
   { "QR groß",
     "Large QR",
     "Grand QR" },  // STR_W_L_P_BIG_QR
-  { "Standard: Hersteller groß oben. Kompakt: Hersteller klein bei den Angaben, der QR-Code wird größer. QR groß: der Code über die ganze Höhe, der Text daneben.",
-    "Standard: the vendor large on top. Compact: the vendor small among the details, the QR code grows. Large QR: the code across the full height, the text beside it.",
-    "Standard : le fabricant en grand en haut. Compact : le fabricant en petit parmi les infos, le code QR grandit. Grand QR : le code sur toute la hauteur, le texte à côté." },  // STR_W_L_ARRANGE_HINT
+  { "Standard: Hersteller groß oben. Kompakt: Hersteller klein bei den Angaben, der QR-Code wird größer. QR groß: der Code über die ganze Höhe, der Text daneben. Material groß: das Material über ein Viertel der Höhe, der Code klein. Nur Text: kein Code, die Angaben groß, wo Platz ist in zwei Spalten.",
+    "Standard: the vendor large on top. Compact: the vendor small among the details, the QR code grows. Large QR: the code across the full height, the text beside it. Large material: the material across a quarter of the height, the code small. Text only: no code, the details large, in two columns where they fit.",
+    "Standard : le fabricant en grand en haut. Compact : le fabricant en petit parmi les infos, le code QR grandit. Grand QR : le code sur toute la hauteur, le texte à côté. Matière en grand : la matière sur un quart de la hauteur, le code en petit. Texte seul : sans code, les infos en grand, sur deux colonnes si elles tiennent." },  // STR_W_L_ARRANGE_HINT
   { "Felder",
     "Fields",
     "Champs" },  // STR_W_L_FIELDS
@@ -3650,6 +3633,294 @@ const char* const STRINGS[][3] = {
     "The tag on the reader is erased.",
     "Le tag posé est effacé." },  // STR_FREE_TAG_ERASE_LINE
   { "Freigeben", "Release", "Libérer" },  // STR_BTN_FREE_TAG
+  // Label editor: more arrangements, upright labels, a line budget
+  { "Material groß", "Large material",
+    "Matière en grand" },  // STR_W_L_P_MATERIAL_BIG
+  { "Nur Text", "Text only",
+    "Texte seul" },  // STR_W_L_P_TEXT_ONLY
+  { "Ausrichtung", "Orientation",
+    "Orientation" },  // STR_W_L_ORIENT
+  { "Quer", "Landscape",
+    "Paysage" },  // STR_W_L_FLAT
+  { "Hochkant", "Portrait",
+    "Portrait" },  // STR_W_L_UPRIGHT
+  { "Zeilen: %d von %d", "Lines: %d of %d",
+    "Lignes : %d sur %d" },  // STR_W_L_CAP
+  { "Mehr Zeilen passen auf dieses Etikett nicht.", "No more lines fit on this label.",
+    "Aucune ligne de plus ne tient sur cette étiquette." },  // STR_W_L_CAP_FULL
+  { "Die letzten Zeilen passen nicht und fallen weg.", "The last lines do not fit and are left off.",
+    "Les dernières lignes ne tiennent pas et sont omises." },  // STR_W_L_CAP_OVER
+  // Label editor: more fields, an own line
+  { "Leer", "Empty",
+    "Vide" },  // STR_LBL_L_EMPTY
+  { "Netto", "Net",
+    "Net" },  // STR_LBL_L_NET
+  { "Düse", "Nozzle",
+    "Buse" },  // STR_LBL_L_NOZZLE
+  { "Düse/Bett", "Nozzle/bed",
+    "Buse/plat." },  // STR_LBL_L_TEMPS
+  { "Lager", "Stored",
+    "Lieu" },  // STR_LBL_L_STORED
+  { "Getrocknet", "Dried",
+    "Séchée" },  // STR_LBL_L_DRIED
+  { "Leergewicht", "Empty weight",
+    "Poids à vide" },  // STR_W_L_F_SPOOL_W
+  { "Nettogewicht", "Net weight",
+    "Poids net" },  // STR_W_L_F_NET_W
+  { "Temperaturen", "Temperatures",
+    "Températures" },  // STR_W_L_F_TEMPS
+  { "Lagerort", "Location",
+    "Emplacement" },  // STR_W_L_F_LOCATION
+  { "Trocknungsdatum", "Drying date",
+    "Date de séchage" },  // STR_W_L_F_DRIED
+  { "Eigene Zeile", "Own line",
+    "Ligne libre" },  // STR_W_L_F_TEXT
+  { "Eigene Zeile: höchstens 40 Zeichen.", "Own line: 40 characters at most.",
+    "Ligne libre : 40 caractères au plus." },  // STR_W_L_TEXT_HINT
+  { "Lagerort und Trocknungsdatum ändern sich, das Etikett nicht. Temperaturen kennt nicht jedes Backend.", "Location and drying date change, the label does not. Not every backend knows temperatures.",
+    "L'emplacement et la date de séchage changent, l'étiquette non. Tous les backends ne connaissent pas les températures." },  // STR_W_L_CHANGE_HINT
+  // Label editor: the filament's label
+  { "Etikett für", "Label for",
+    "Étiquette pour" },  // STR_W_L_KIND
+  { "Spule", "Spool",
+    "Bobine" },  // STR_W_L_KIND_SPOOL
+  { "Filament", "Filament",
+    "Filament" },  // STR_W_L_KIND_FILAMENT
+  { "Am Gerät wählst du die Art im Druckfenster, ohne Druckfenster kommt das der Spule.", "On the scale the print sheet picks the kind; without the sheet the spool's prints.",
+    "Sur la balance, la fenêtre d'impression choisit le type ; sans elle, c'est celle de la bobine." },  // STR_W_L_KIND_HINT
+  { "Dieses Backend hat keine Filamentseite: das Filament-Etikett kommt ohne Code.", "This backend has no filament page: the filament label prints without a code.",
+    "Ce backend n'a pas de page filament : l'étiquette du filament s'imprime sans code." },  // STR_W_L_FIL_NO_PAGE
+  // The print sheet on the scale
+  { "Drucken", "Print",
+    "Imprimer" },  // STR_PS_PRINT
+  { "Vor dem Druck zeigen", "Show before printing",
+    "Aperçu d'abord" },  // STR_PS_ASK
+  { "Vorschau und Einstellungen", "Preview and settings",
+    "Aperçu et réglages" },  // STR_PS_ASK_SUB
+  { "Layout aus FilaMan", "Layout from FilaMan",
+    "Mise en page FilaMan" },  // STR_PS_SERVER
+  { "Im Browser unter Etiketten", "In the browser, under Labels",
+    "Navigateur, Étiquettes" },  // STR_PS_SERVER_SUB
+  { "Felder, eigene Zeile und FilaMan-Vorlagen stellst du im Browser ein:", "Fields, the own line and FilaMan presets are set in the browser:",
+    "Champs, ligne libre et modèles FilaMan : dans le navigateur" },  // STR_PS_MORE_WEB
+  // A fact on a printed label, caption and value on one line
+  { "%s: %s", "%s: %s", "%s : %s" },  // STR_LBL_FACT_FMT
+  // Label editor: the drying, and the switches that print nothing
+  { "Trocknen",              "Dry",                  "Séchage" },  // STR_LBL_L_DRYING
+  { "Trocknen (°C, h)",      "Drying (°C, h)",       "Séchage (°C, h)" },  // STR_W_L_F_DRYING
+  { "bei dieser Spule leer", "empty for this spool", "vide pour cette bobine" },  // STR_W_L_GAP_SPOOL
+  { "%s führt es nicht",     "%s does not keep it",  "%s ne le gère pas" },  // STR_W_L_GAP_BACKEND
+  // Printer page: how a model prints, and the recommended printers
+  { "Druckt per Thermodirekt, ohne Farbband.", "Prints direct thermal, without a ribbon.",
+    "Impression thermique directe, sans ruban." },  // STR_W_P_METHOD_DIRECT
+  { "Druckt per Thermotransfer mit Farbband: Wärme färbt das Etikett nicht.", "Prints by thermal transfer with a ribbon: heat does not colour the label.",
+    "Impression par transfert thermique à ruban : la chaleur ne colore pas l'étiquette." },  // STR_W_P_METHOD_RIBBON
+  { "Empfohlene Drucker", "Recommended printers",
+    "Imprimantes recommandées" },  // STR_W_P_SHOP_TITLE
+  { "Welche Drucker wir selbst testen und welche Etiketten dazu passen.", "The printers we test ourselves and the labels that go with them.",
+    "Les imprimantes que nous testons nous-mêmes et les étiquettes qui leur conviennent." },  // STR_W_P_SHOP_HINT
+  // Bluetooth screen: the way to the recommended printers
+  { "Noch kein Drucker?", "No printer yet?",
+    "Pas encore d'imprimante ?" },  // STR_BT_REC_NONE
+  { "Welche passen: QR-Code zum Handbuch", "Which ones fit: QR code to the manual",
+    "Lesquelles conviennent : QR code du manuel" },  // STR_BT_REC_NONE_SUB
+  { "Empfohlene Drucker", "Recommended printers",
+    "Imprimantes recommandées" },  // STR_BT_REC_OTHER
+  { "Von uns getestet: QR-Code zum Handbuch", "Tested by us: QR code to the manual",
+    "Testées par nous : QR code du manuel" },  // STR_BT_REC_OTHER_SUB
+  { "Etiketten nachkaufen", "Buy more labels",
+    "Racheter des étiquettes" },  // STR_BT_REC_LABELS
+  { "Etiketten und Farbband", "Labels and ribbon",
+    "Étiquettes et ruban" },  // STR_BT_REC_RIBBON
+  { "Passende Rollen: QR-Code zum Handbuch", "Rolls that fit: QR code to the manual",
+    "Rouleaux adaptés : QR code du manuel" },  // STR_BT_REC_SUPPLY_SUB
+  // Printer page: the box worded for the printer at hand
+  { "Zwei Drucker testen wir selbst mit jeder Version: Phomemo M220 und NIIMBOT M2. Welcher zu dir passt, zeigt der Vergleich im Handbuch.", "We test two printers ourselves with every release: the Phomemo M220 and the NIIMBOT M2. The comparison in the manual shows which one suits you.",
+    "Nous testons nous-mêmes deux imprimantes à chaque version : la Phomemo M220 et la NIIMBOT M2. La comparaison dans le manuel montre laquelle vous convient." },  // STR_W_P_REC_NONE_TEXT
+  { "Drucker vergleichen", "Compare printers",
+    "Comparer les imprimantes" },  // STR_W_P_REC_NONE_BTN
+  { "Neue Etikettenfunktionen bauen und testen wir zuerst auf M220 und M2. Was sie unterscheidet, steht im Handbuch.", "We build and test new label features on the M220 and the M2 first. What sets them apart is in the manual.",
+    "Nous développons et testons les nouvelles fonctions d'étiquette d'abord sur la M220 et la M2. Ce qui les distingue est dans le manuel." },  // STR_W_P_REC_OTHER_TEXT
+  { "Zum Vergleich", "See the comparison",
+    "Voir la comparaison" },  // STR_W_P_REC_OTHER_BTN
+  { "Passende Rollen für deinen M220, in 40 x 30 und 50 x 30 mm.", "Rolls that fit your M220, in 40 x 30 and 50 x 30 mm.",
+    "Rouleaux adaptés à votre M220, en 40 x 30 et 50 x 30 mm." },  // STR_W_P_REC_M220_TEXT
+  { "Zu den Etiketten", "To the labels",
+    "Voir les étiquettes" },  // STR_W_P_REC_LABELS_BTN
+  { "Passende Rollen und Farbband für deinen M2.", "Rolls and ribbon that fit your M2.",
+    "Rouleaux et ruban adaptés à votre M2." },  // STR_W_P_REC_M2_TEXT
+  { "Zu Etiketten und Farbband", "To labels and ribbon",
+    "Voir étiquettes et ruban" },  // STR_W_P_REC_RIBBON_BTN
+  { "Anderer Tag auf dem Leser - nicht gelöscht", "A different tag is on the reader - not erased",
+    "Autre tag sur le lecteur - rien effacé" },  // STR_TW_ERR_OTHER_TAG
+  { "Empfohlen", "Recommended",
+    "Recommandée" },  // STR_PRN_TAG_RECOMMENDED
+  { "experimentell", "experimental",
+    "expérimentale" },  // STR_PRN_TAG_EXPERIMENTAL
+  { "noch keine Vorlage", "no layout yet",
+    "pas encore de modèle" },  // STR_PRN_MEDIA_NO_LAYOUT
+  { "Auch in Extra-Feld", "Also in extra field",
+    "Aussi dans un champ" },  // STR_TAG_COMP
+  { "Nicht jedes Tool kennt die nativen Tags von Spoolman. Hier schreibt die Waage beim Verknüpfen zusätzlich in ein Extra-Feld und legt es an, falls es fehlt.\n\nextra.tag: die UUID einer Bambu-Spule, für OpenSpoolman. Andere Tags betrifft das nicht.\nextra.nfc_id: die UUID einer Bambu-Spule, bei anderen Tags die Chip-UID.\n\nBeim Auflegen füllt die Waage nur ein leeres Feld. Geleert wird es erst, wenn alle Tags der Spule gelöst werden oder der Tag, dessen UID darin steht.",
+    "Not every tool knows Spoolman's native tags. With this, the scale also writes into an extra field when linking, and creates the field if it is missing.\n\nextra.tag: the UUID of a Bambu spool, for OpenSpoolman. Other tags are not affected.\nextra.nfc_id: the UUID of a Bambu spool, the chip UID for other tags.\n\nWhen a spool is placed, the scale only fills an empty field. It is cleared only when all of the spool's tags are unlinked, or the tag whose UID it holds.",
+    "Certains outils ignorent les tags natifs de Spoolman. La balance écrit alors aussi dans un champ supplémentaire lors d'une liaison et le crée s'il manque.\n\nextra.tag : l'UUID d'une bobine Bambu, pour OpenSpoolman. Rien pour les autres tags.\nextra.nfc_id : l'UUID d'une bobine Bambu, sinon l'UID de la puce.\n\nUne bobine posée ne remplit qu'un champ vide. Il n'est vidé que si tous ses tags sont dissociés, ou le tag dont il contient l'UID." },  // STR_TAG_COMP_INFO
+  { "Aus",                          "Off",                          "Désactivé" },  // STR_TAG_COMP_OFF
+  { "Nur die nativen Tags", "Native tags only",
+    "Tags natifs uniquement" },  // STR_TAG_COMP_OFF_SUB
+  { "extra.tag",                    "extra.tag",                    "extra.tag" },  // STR_TAG_COMP_TAG
+  { "Bambu-UUID, für OpenSpoolman", "Bambu UUID, for OpenSpoolman",
+    "UUID Bambu, pour OpenSpoolman" },  // STR_TAG_COMP_TAG_SUB
+  { "extra.nfc_id",                 "extra.nfc_id",                 "extra.nfc_id" },  // STR_TAG_COMP_NFCID
+  { "Bambu-UUID oder Chip-UID", "Bambu UUID or chip UID",
+    "UUID Bambu ou UID de puce" },  // STR_TAG_COMP_NFCID_SUB
+  // Printer page: only BLE printers, and the way to what a printer needs
+  { "Die Waage spricht nur Bluetooth Low Energy. Drucker mit klassischem Bluetooth, etwa Brother P-touch, kann sie nicht erreichen.",
+    "The scale speaks Bluetooth Low Energy only. Printers on Classic Bluetooth, such as Brother P-touch, are out of its reach.",
+    "La balance ne parle que le Bluetooth Low Energy. Les imprimantes en Bluetooth classique, comme les Brother P-touch, lui restent inaccessibles." },  // STR_W_P_BLE_ONLY
+  { "Was ein Drucker können muss", "What a printer needs",
+    "Ce qu'une imprimante doit savoir faire" },  // STR_W_P_NEEDS_LINK
+  { "Neustart nötig", "Restart needed",
+    "Redémarrage requis" },  // STR_W_P_RESTART_NEEDED
+  { "Drucker einschalten, dann suchen.", "Switch the printer on, then scan.",
+    "Allumez l'imprimante, puis lancez la recherche." },  // STR_W_P_EMPTY_HINT
+  { "Wähle deinen Drucker aus der Liste unten.", "Pick yours from the list below.",
+    "Choisissez la vôtre dans la liste ci-dessous." },  // STR_W_P_PICK_HINT
+  { "Drucker wechseln", "Change printer",
+    "Changer d'imprimante" },  // STR_W_P_CHANGE
+  { "Farbband", "ribbon",
+    "ruban" },  // STR_W_P_SPEC_RIBBON
+  // ── The card for a spool the inventory does not know ──
+  { "Bei unbekannter Spule fragen",
+    "Ask about unknown spools",
+    "Demander si bobine inconnue" },  // STR_UNK_ASK
+  { "Beim Auflegen",
+    "When one is put down",
+    "À la pose" },  // STR_UNK_ASK_SUB
+  { "An: Legst du eine Spule auf, die das Inventar noch nicht kennt, schlägt die Waage den nächsten Schritt vor - eine passende Spule ohne Tag verknüpfen oder eine neue aus dem Tag anlegen. \"Nur wiegen\" schließt die Frage, bis die Spule wieder heruntergenommen wird.\n\nAus: Es wechseln nur die beiden Knöpfe auf dem Hauptscreen, wie bisher.",
+    "On: when you put down a spool the inventory does not know yet, the scale suggests the next step - link a matching spool without a tag, or create a new one from the tag. \"Just weigh\" closes the question until the spool is taken off again.\n\nOff: only the two buttons on the main screen change, as before.",
+    "Activé : quand vous posez une bobine que l'inventaire ne connaît pas encore, la balance propose l'étape suivante - lier une bobine correspondante sans tag, ou en créer une nouvelle depuis le tag. « Juste peser » ferme la question jusqu'à ce que la bobine soit retirée.\n\nDésactivé : seuls les deux boutons de l'écran principal changent." },  // STR_UNK_ASK_INFO
+  { "Vorschlag: diese Spule ohne Tag",
+    "Suggestion: this spool without a tag",
+    "Suggestion : cette bobine sans tag" },  // STR_UNK_SUGGEST_ONE
+  { "Vorschlag: %d Spulen ohne Tag passen",
+    "Suggestion: %d spools without a tag match",
+    "Suggestion : %d bobines sans tag conviennent" },  // STR_UNK_SUGGEST_MANY
+  { "Vorschlag: neu aus dem Tag",
+    "Suggestion: new from the tag",
+    "Suggestion : nouvelle depuis le tag" },  // STR_UNK_SUGGEST_NEW
+  { "%s im Bestand, passt zur Waage",
+    "%s on file, matches the scale",
+    "%s en stock, comme la balance" },  // STR_UNK_STORED_HIT
+  { "%s im Bestand",
+    "%s on file",
+    "%s en stock" },  // STR_UNK_STORED
+  { "Noch keine Spule davon im Bestand",
+    "No spool of it in the inventory yet",
+    "Pas encore dans l'inventaire" },  // STR_UNK_NONE_LINE
+  { "Neue Spule aus den Daten des Tags",
+    "A new spool from the tag's data",
+    "Nouvelle bobine selon le tag" },  // STR_UNK_NONE_SUB
+  { "+%d weitere",
+    "+%d more",
+    "+%d autres" },  // STR_UNK_MORE
+  { "Alle zeigen",
+    "Show all",
+    "Tout voir" },  // STR_UNK_BTN_ALL
+  { "Andere Wege",
+    "Other ways",
+    "Autres choix" },  // STR_UNK_BTN_OTHER
+  { "Nur wiegen",
+    "Just weigh",
+    "Juste peser" },  // STR_UNK_BTN_WEIGH
+  { "Kopie",
+    "Copy",
+    "Copie" },  // STR_UNK_TILE_COPY
+  { "%.0f g netto",
+    "%.0f g net",
+    "%.0f g net" },  // STR_UNK_NET
+  { "%.0f g auf der Waage",
+    "%.0f g on the scale",
+    "%.0f g sur la balance" },  // STR_UNK_GROSS
+  { "UID %s",
+    "UID %s",
+    "UID %s" },  // STR_UNK_UID
+  { "?",
+    "?",
+    "?" },  // STR_UNK_NO_COLOR
+  // ── What a spool created off the pad starts with ──
+  { "%.0f von %d g",
+    "%.0f of %d g",
+    "%.0f sur %d g" },  // STR_TAGNEW_W_OF
+  { "voll: %.0f g",
+    "full: %.0f g",
+    "pleine : %.0f g" },  // STR_TAGNEW_W_FULL
+  { "nicht gewogen, voll: %d g",
+    "not weighed, full: %d g",
+    "non pesée, pleine : %d g" },  // STR_TAGNEW_W_NOT
+  { "Leerspule unbekannt, voll: %d g",
+    "empty spool unknown, full: %d g",
+    "bobine vide inconnue, pleine : %d g" },  // STR_TAGNEW_W_NO_TARE
+  { "zu schwer: %.0f g, voll: %d g",
+    "too heavy: %.0f g, full: %d g",
+    "trop lourde : %.0f g, pleine : %d g" },  // STR_TAGNEW_W_OVER
+  { "zu schwer: %.0f g, Leerspule %d g prüfen",
+    "too heavy: %.0f g, check empty spool %d g",
+    "trop lourde : %.0f g, vérifier vide %d g" },  // STR_TAGNEW_W_OVER_TARE
+  { "%s | leer %.0f g",
+    "%s | empty %.0f g",
+    "%s | vide %.0f g" },  // STR_COPY_CARD_TARE
+  // Printing on the PC through FilaMan
+  { "Am PC drucken",
+    "Print on the PC",
+    "Imprimer sur le PC" },  // STR_PCP_TITLE
+  { "Über FilaMan. Dazu muss FilaMan am PC im Browser offen sein.",
+    "Through FilaMan. FilaMan has to be open in a browser on the PC.",
+    "Via FilaMan, qui doit être ouvert dans un navigateur sur le PC." },  // STR_PCP_SUB
+  { "Spulen-Etikett",
+    "Spool label",
+    "Étiquette bobine" },  // STR_PCP_SPOOL
+  { "Filament-Etikett",
+    "Filament label",
+    "Étiquette filament" },  // STR_PCP_FILAMENT
+  { "Wird an FilaMan gesendet ...",
+    "Sending to FilaMan ...",
+    "Envoi à FilaMan ..." },  // STR_PCP_SENDING
+  { "An FilaMan gesendet",
+    "Sent to FilaMan",
+    "Envoyé à FilaMan" },  // STR_PCP_SENT_TITLE
+  { "Das Etikett erscheint im offenen FilaMan-Tab. Dort drucken.",
+    "The label shows up in the open FilaMan tab. Print it from there.",
+    "L'étiquette s'affiche dans l'onglet FilaMan ouvert. Imprimez-la." },  // STR_PCP_SENT_TEXT
+  { "Nicht gesendet",
+    "Not sent",
+    "Non envoyé" },  // STR_PCP_FAIL_TITLE
+  { "Dieses FilaMan nimmt noch keine Druckanfragen an. Nötig ist FilaMan 1.4.3 oder neuer.",
+    "This FilaMan does not take print requests yet. It needs FilaMan 1.4.3 or newer.",
+    "Ce FilaMan ne gère pas encore l'impression sur PC. Il faut FilaMan 1.4.3 ou plus récent." },  // STR_PCP_NO_ROUTE
+  { "Spule per ID",
+    "Spool by ID",
+    "Bobine par ID" },  // STR_BTN_SPOOL_BY_ID
+  { "Die ID steht in Spoolman und auf dem Etikett. Ohne Tag wird das Gewicht nur gespeichert, wenn du \"Gewicht updaten\" tippst.",
+    "The ID is shown in Spoolman and on the label. Without a tag the weight is saved only when you tap \"Update Weight\".",
+    "L'ID figure dans Spoolman et sur l'étiquette. Sans tag, le poids n'est enregistré que si vous touchez \"Envoyer le poids\"." },  // STR_IDPAD_INFO
+  { "Suchen",
+    "Search",
+    "Chercher" },  // STR_IDPAD_SEARCH
+  { "Suche ...",
+    "Searching ...",
+    "Recherche ..." },  // STR_IDPAD_SEARCHING
+  { "Diese Spule",
+    "This spool",
+    "Cette bobine" },  // STR_IDPAD_THIS_SPOOL
+  { "Keine Spule mit ID %d",
+    "No spool with ID %d",
+    "Aucune bobine ID %d" },  // STR_IDPAD_NOT_FOUND
+  { "Ziffern prüfen und erneut suchen.",
+    "Check the digits and search again.",
+    "Vérifiez les chiffres et recherchez." },  // STR_IDPAD_NOT_FOUND_HINT
+  { "Per ID geladen - kein Tag",
+    "Loaded by ID - no tag",
+    "Chargée par ID - sans tag" },  // STR_ID_SPOOL_STATUS
 
   // The AMS board: its title, a name that stays as it is in every language,
   // and the line in the middle of the page until the server has answered
@@ -3664,6 +3935,7 @@ StringID tagWriteResultString(uint8_t code) {
     case TW_ERR_NOT_NTAG:  return STR_TW_ERR_NOT_NTAG;
     case TW_ERR_BACKEND:   return STR_TW_ERR_BACKEND;
     case TW_ERR_SPACE:     return STR_TW_ERR_SPACE;
+    case TW_ERR_OTHER_TAG: return STR_TW_ERR_OTHER_TAG;
     default:               return STR_TW_ERR_WRITE;
   }
 }

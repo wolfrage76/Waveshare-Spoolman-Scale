@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <lvgl.h>
+#include <cmath>
 #include <cstring>
 
 #include "app_config.h"
@@ -20,6 +21,7 @@
 #include "services/breadcrumb.h"
 #include "services/list_limits.h"
 #include "services/server_reach.h"
+#include "services/spool_start.h"
 #include "services/spool_cache.h"
 #include "services/spoolman_actions.h"
 #include "services/tag_field.h"
@@ -128,12 +130,19 @@ bool finishCopyFlow(int new_spool_id, const char* tray_uuid_override) {
 void doCopySpoolCreate(int template_spool_id, int template_filament_id,
                        float template_initial, float template_spool_w) {
   if (!wifi_ok) return;
-  float netto = scale_weight_g - template_spool_w;
-  if (netto < 0) netto = 0;
+  // The template's empty spool is one someone stored, at whichever level
+  // spoolTare() found it: the reading is weighed against it, and a full copy
+  // files what it weighs as its full weight (spool_start.h).
+  const SpoolStart start = spoolStartValues(scale_weight_g, (int)lroundf(template_spool_w),
+                                            template_spool_w > 0.0f ? TARE_Q_KNOWN : TARE_Q_NONE,
+                                            (int)lroundf(template_initial));
+  logSDf("Copy: start %s gross=%.0f tare=%.0f label=%.0f -> initial=%d remaining=%.0f",
+         spoolStartVerdictName(start.verdict), scale_weight_g, template_spool_w, template_initial,
+         start.initial_g, start.remaining_g);
 
   int new_id = 0;
   int code = serverReachNote(backendCreateSpool(cfg_spoolman_base, template_spool_id, template_filament_id,
-    template_initial, template_spool_w, netto, &new_id, 8000), true);
+    (float)start.initial_g, template_spool_w, start.remaining_g, &new_id, 8000), true);
   if ((code == 200 || code == 201) && new_id > 0) {
     Serial.printf("Copy spool created: new ID=%d\n", new_id);
     logSDf("Copy spool created: tmpl_spool=%d fid=%d new_spool_id=%d",

@@ -61,22 +61,13 @@ static const StringID DRIED_SUB[BB_DRIED_COUNT] = {
   STR_BB_DRIED_OFF_SUB, STR_BB_DRIED_SPOOLMAN_SUB, STR_BB_DRIED_NOTE_SUB
 };
 
-// Last child is the arrow, which here shows which entry is the chosen one.
-static void markChosen(lv_obj_t *btn, bool active) {
-  lv_obj_t *arr_lbl = lv_obj_get_child(btn, -1);
-  if (!arr_lbl) return;
-  lv_label_set_text(arr_lbl, active ? LV_SYMBOL_OK : "");
-  lv_obj_set_style_text_color(arr_lbl, lv_color_hex(UI_COL_ACCENT), 0);
-  lv_obj_set_style_text_font(arr_lbl, &lv_font_montserrat_ext_16, 0);
-}
-
 // BamBuddy's own field: shown as the choice in force, not something to tap.
 static void addNativeRow(lv_obj_t *list) {
   char buf_t[40], buf_s[48];
   copyT(buf_t, sizeof(buf_t), STR_BB_DRIED_NATIVE);
   copyT(buf_s, sizeof(buf_s), STR_BB_DRIED_NATIVE_SUB);
   lv_obj_t *btn = makeListBtn(list, "", buf_t, buf_s, true);
-  markChosen(btn, true);
+  markListBtnChosen(btn, true);
   lv_obj_clear_flag(btn, LV_OBJ_FLAG_CLICKABLE);
 }
 
@@ -96,7 +87,7 @@ static void addDriedRow(lv_obj_t *list, const SettingDesc &s, uint8_t value, boo
   copyT(buf_s, sizeof(buf_s), sub);
 
   lv_obj_t *btn = makeListBtn(list, "", buf_t, buf_s, active);
-  markChosen(btn, active);
+  markListBtnChosen(btn, active);
 
   if (!enabled) {
     // Left visible but inert: the reason it cannot be picked is the more

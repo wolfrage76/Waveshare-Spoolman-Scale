@@ -3,8 +3,9 @@
 
 Counts the house rules a grep cannot hold: what an LVGL event handler does,
 where a colour is written as a number, which caption bypasses the string
-table. Every number is compared with scripts/conventions_baseline.json and
-may stay or fall, never rise. A few must be zero outright.
+table, how many parameters a function takes. Every number is compared with
+scripts/conventions_baseline.json and may stay or fall, never rise. A few
+must be zero outright.
 
     python3 scripts/check_conventions.py                  check against the baseline
     python3 scripts/check_conventions.py --verbose        list every finding as well
@@ -31,6 +32,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_PATH = REPO_ROOT / "scripts" / "conventions_baseline.json"
 
 MAX_FILE_LINES = 1000
+# More than this many parameters go into a struct, or the function splits.
+MAX_PARAMS = 5
 LINES_PREFIX = "lines:"
 SOURCE_SUFFIXES = (".cpp", ".h", ".hpp")
 # Generated glyph tables: tens of thousands of lines nobody writes by hand.
@@ -569,6 +572,56 @@ def scan_german_comment_lines(src):
 
 
 # --------------------------------------------------------------------------
+# Parameters
+# --------------------------------------------------------------------------
+
+def _param_count(params):
+    """How many parameters a parameter list names. Commas inside a nested
+    bracket pair - a function pointer, a template argument - do not count."""
+    inner = params.strip()
+    if not inner or inner == "void":
+        return 0
+    n, depth = 1, 0
+    for ch in inner:
+        if ch in "([{<":
+            depth += 1
+        elif ch in ")]}>":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            n += 1
+    return n
+
+
+def function_heads(src):
+    """[(name, params, line)] for the definitions find_functions() sees:
+    the text between the parentheses of the signature, literals blanked."""
+    code, out = src.code, []
+    for name, body_start, _ in find_functions(code):
+        begin = max(code.rfind(";", 0, body_start), code.rfind("{", 0, body_start),
+                    code.rfind("}", 0, body_start)) + 1
+        head = code[begin:body_start]
+        tail = _FUNC_TAIL_RE.search(head)
+        if not tail:
+            continue
+        open_idx = _open_before(head, tail.start())
+        if open_idx < 0:
+            continue
+        out.append((name, head[open_idx + 1:tail.start()], src.line_of(begin + open_idx)))
+    return out
+
+
+def scan_params_over_limit(src):
+    """A definition with more than MAX_PARAMS parameters. A prototype is not
+    counted: a function is one finding, where it is written out."""
+    out = []
+    for name, params, line in function_heads(src):
+        n = _param_count(params)
+        if n > MAX_PARAMS:
+            out.append((line, "%s() takes %d parameters, the limit is %d" % (name, n, MAX_PARAMS)))
+    return out
+
+
+# --------------------------------------------------------------------------
 # Collecting
 # --------------------------------------------------------------------------
 
@@ -606,7 +659,8 @@ def collect():
     texts = dict((rel, _read(rel)) for rel in source_files())
     sources = dict((rel, Source(text)) for rel, text in texts.items())
     names = ("inline_color_hex", "raw_color_hex", "label_literal_captions", "german_comment_lines",
-             "obj_del_in_handler", "strncpy_with_T", "http_in_handler") + MUST_BE_ZERO
+             "obj_del_in_handler", "strncpy_with_T", "http_in_handler",
+             "params_over_limit") + MUST_BE_ZERO
     found = dict((name, []) for name in names)
     stats = {"files": len(sources), "handlers": 0, "routes": 0, "label calls": 0,
              "comment lines": 0}
@@ -630,6 +684,7 @@ def collect():
             add("german_comment_lines", rel, scan_german_comment_lines(src))
         add("obj_del_in_handler", rel, scan_obj_del_in_handler(src))
         add("delay_in_handler", rel, scan_delay_in_handler(src))
+        add("params_over_limit", rel, scan_params_over_limit(src))
         every, open_ones = scan_strncpy_with_T(src)
         add("strncpy_with_T", rel, every)
         add("strncpy_with_T_unterminated", rel, open_ones)
@@ -841,6 +896,21 @@ def selftest():
               " [&srv]() { %s });")
     check("upload, both gated", count(scan_web_route_without_gate, upload % "if (!webAllowed(GATE_MAINT)) return;"), 0)
     check("upload, chunk open", count(scan_web_route_without_gate, upload % "write();"), 1)
+
+    # parameters
+    check("six parameters", count(scan_params_over_limit, "void f(int a, int b, int c, int d, int e, int f) { }"), 1)
+    check("five parameters", count(scan_params_over_limit, "void f(int a, int b, int c, int d, int e) { }"), 0)
+    check("no parameters", count(scan_params_over_limit, "void f(void) { }"), 0)
+    check("function pointer is one", count(scan_params_over_limit,
+          "void f(void (*cb)(int, int, int, int, int), int b, int c, int d, int e) { }"), 0)
+    check("template argument is one", count(scan_params_over_limit,
+          "void f(std::map<int, int> m, int a, int b, int c, int d) { }"), 0)
+    check("prototype not counted", count(scan_params_over_limit, "void f(int a, int b, int c, int d, int e, int f);"), 0)
+    check("call is not a definition", count(scan_params_over_limit, "void g() { f(1, 2, 3, 4, 5, 6); }"), 0)
+    check("method counted", count(scan_params_over_limit,
+          "struct S { int m(int a, int b, int c, int d, int e, int f) const { return a; } };"), 1)
+    check("parameter line", scan_params_over_limit(Source(
+          "\nstatic int\nf(int a, int b, int c, int d, int e, int f)\n{ return a; }"))[0][0], 3)
 
     # baseline
     base = {"inline_color_hex": 10, LINES_PREFIX + "src/a.cpp": 1200}

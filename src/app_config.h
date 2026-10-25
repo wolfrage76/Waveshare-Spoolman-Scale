@@ -1,6 +1,6 @@
 #pragma once
 
-#define FW_VERSION  "v0.8.3-beta.61-w1"
+#define FW_VERSION  "v0.8.3-w1"
 #define DONATION_URL "ko-fi.com/formfollowsfunction"
 
 // Backlight PWM duty on GPIO45, 8 bit, straight through to LovyanGFX. Not a
@@ -63,6 +63,8 @@
 #define FLASHER_HAS_CURRENT_LAYOUT  1
 // The public web flasher, where the hint sends a device on the old layout.
 #define FLASHER_URL "https://wolfrage76.github.io/Waveshare-Spoolman-Scale/"
+// The manual. A German page lives under de/, the English one at the root.
+#define DOCS_URL "https://niko11111.github.io/SpoolmanScale-Docs/"
 
 // The two chips on I2C_EXT. Named because a bare 0x2A stood in three files and
 // meant nothing to anyone reading a bus scan.
@@ -109,6 +111,15 @@
 // for a spool that simply has no tag on it.
 #define REMOTE_LINK_TAGLESS_MS  10000
 
+// A spool shown by its typed id (app/id_spool.h). It counts as put on the pad
+// from this load, the threshold the location question uses for a real spool,
+// and is dropped again when nothing was put on within the idle time. Once
+// lifted it stays shown for the grace a lifted tag gets (NO_TAG_CLEAR_MS in
+// app_loop.cpp), so a location or weight it is carried away during finds it.
+#define ID_SPOOL_LOAD_MIN_G     50.0f
+#define ID_SPOOL_IDLE_MS        120000UL
+#define ID_SPOOL_LIFTED_MS      60000UL
+
 // A spool that reads a few grams over its label weight is simply full, not
 // mislabelled. Only a real difference is worth interrupting the weighing for.
 #define BB_CAP_TOLERANCE_G   2.0f
@@ -118,6 +129,28 @@
 // to 252 in a real library), and the stored figure lags behind a print that
 // was never booked against it.
 #define LINK_WEIGHT_TOLERANCE_G  20.0f
+
+// How still the pad has to be before a reading counts as the spool's weight,
+// where nothing was weighed on purpose: the AMS question and the card for an
+// unknown spool. Deliberately looser and far shorter than the auto weight
+// criterion (0.5 g over 3 s): there the user is waiting for a countdown, here
+// they are putting a spool down and picking it up again. With the 1.6 s
+// moving average in front of it, this settles about 2.4 s after the spool
+// lands instead of the 5 s the strict values needed.
+#define PAD_SETTLE_TOL_G   2.0f
+#define PAD_SETTLE_MS      800
+
+// What a spool starts with when it is created off the pad
+// (services/spool_start.h). A net reading within this band around the label
+// is a full spool: Bambu winds up to about 1.5 % over the label, and an empty
+// spool someone weighed is good to a few grams. On Bambu's fixed core the
+// band widens by the 11 g the real cores vary (241 to 252 g in one library).
+// Below START_MIN_NET_G of filament the pad counts as empty: the spool is
+// being held to the reader, or only its core lies there.
+#define START_FULL_TOL_PCT          3
+#define START_FULL_TOL_MIN_G       15.0f
+#define START_TARE_DEFAULT_SLACK_G 10.0f
+#define START_MIN_NET_G            20.0f
 
 // Creating a spool straight from a Bambu tag. The tag carries material,
 // brand, colour and temperatures, but no weights at all - a Bambu Lab core
@@ -130,9 +163,9 @@
 // empty brand the server would turn into a filament with no vendor at all.
 #define BAMBU_VENDOR_NAME     "Bambu Lab"
 #define BAMBU_CORE_WEIGHT_G      250
-// The nominal filament weights Bambu sells. The scale picks whichever is
-// closest to what it reads and the user can correct it before saving, which
-// beats guessing 1000 g for a 250 g refill.
+// The nominal filament weights Bambu sells, for a tag that names no net
+// weight of its own (Bambu tags carry theirs): the scale takes whichever is
+// closest to what it reads, which beats guessing 1000 g for a 250 g refill.
 #define NEWTAG_LABEL_COUNT         4
 #define NEWTAG_LABEL_CHOICES  { 250, 500, 750, 1000 }
 
@@ -206,3 +239,10 @@
 // answering, before it stops trying. Mirrors SCALE_RECOVER_ATTEMPTS, which is
 // declared next to the scale watchdog in app_loop.cpp.
 #define NFC_RECOVER_ATTEMPTS  3
+
+// Signal strength as four bars, drawn by the status page for the WiFi link
+// and by the printer page for the printer's Bluetooth RSSI: one ladder for
+// both, green from three bars up.
+#define SIGNAL_BARS_4_DBM  -50
+#define SIGNAL_BARS_3_DBM  -65
+#define SIGNAL_BARS_2_DBM  -75

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <esp_heap_caps.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -46,13 +47,16 @@ SpiRamAllocator s_psram;
 // What the walk through the vendor's filaments has found so far. For an
 // entry picked from the FilamentDB the two mean the entry's id and its
 // designation instead (judgeDbFilament()).
+struct FilamentHit {
+  int  id;                // 0: none yet
+  char name[64];
+  int  spool_weight_g;    // the filament's default empty spool, 0 when none
+};
 struct FilamentSearch {
   const TagCreateInput* in;
   char material_type[24]; // FilamentDB entry: the type FilaMan files it under
-  int  by_article;        // lowest id carrying the article number
-  int  by_look;           // lowest id with the colour and the product line
-  char name_article[64];
-  char name_look[64];
+  FilamentHit by_article; // lowest id carrying the article number
+  FilamentHit by_look;    // lowest id with the colour and the product line
 };
 
 }  // namespace
@@ -75,18 +79,25 @@ static int readPage(const char* base_url, const char* api_key, const String& pat
 }
 
 // The vendor's id, 0 when FilaMan has none yet, -1 on failure.
-static int findManufacturer(const char* base_url, const char* api_key, const char* vendor) {
+// The maker's id, 0 when FilaMan has none yet; with it the maker's empty
+// spool, for what a new spool is weighed against (tagCreateTare()).
+static int findManufacturer(const char* base_url, const char* api_key, const char* vendor,
+                            TagFilamentPlan* plan) {
   JsonDocument filter;
   JsonObject f = filter["items"].to<JsonArray>().add<JsonObject>();
   f["id"]   = true;
   f["name"] = true;
+  f["empty_spool_weight_g"] = true;
   for (int page = 1; page <= FM_FIL_MAX_PAGES; page++) {
     JsonDocument doc(&s_psram);
     const String path = String("/api/v1/manufacturers?page_size=") + FM_FIL_PAGE_SIZE + "&page=" + page;
     const int n = readPage(base_url, api_key, path, doc, filter);
     if (n < 0) return n;
-    for (JsonObjectConst m : doc["items"].as<JsonArrayConst>())
-      if (strcasecmp(m["name"] | "", vendor) == 0) return m["id"] | 0;
+    for (JsonObjectConst m : doc["items"].as<JsonArrayConst>()) {
+      if (strcasecmp(m["name"] | "", vendor) != 0) continue;
+      plan->vendor_spool_weight_g = (int)lroundf(m["empty_spool_weight_g"] | 0.0f);
+      return m["id"] | 0;
+    }
     if (n < FM_FIL_PAGE_SIZE) break;
   }
   return 0;
@@ -157,10 +168,11 @@ static bool colorsFit(JsonObjectConst fil, const TagCreateInput& in) {
   return in.color_count == 1 && hasColor(fil, in.color_hex);
 }
 
-static void keepLowest(int id, const char* name, int* best, char* best_name) {
-  if (*best != 0 && id >= *best) return;
-  *best = id;
-  snprintf(best_name, 64, "%s", name);
+static void keepLowest(JsonObjectConst fil, int id, const char* name, FilamentHit* best) {
+  if (best->id != 0 && id >= best->id) return;
+  best->id = id;
+  best->spool_weight_g = (int)lroundf(fil["default_spool_weight_g"] | 0.0f);
+  snprintf(best->name, sizeof(best->name), "%s", name);
 }
 
 static void judgeFilament(JsonObjectConst fil, FilamentSearch* s) {
@@ -171,12 +183,12 @@ static void judgeFilament(JsonObjectConst fil, FilamentSearch* s) {
   if (in.article[0] && (strcmp(filamanFilamentArticle(fil), in.article) == 0 ||
                         tagCreateArticleInText(fil["manufacturer_color_name"] | "", in.article) ||
                         tagCreateArticleInText(designation, in.article))) {
-    keepLowest(id, designation, &s->by_article, s->name_article);
+    keepLowest(fil, id, designation, &s->by_article);
     return;
   }
   if (colorsFit(fil, in) &&
       tagCreateSubgroupMatches(fil["material_subgroup"] | "", designation, in))
-    keepLowest(id, designation, &s->by_look, s->name_look);
+    keepLowest(fil, id, designation, &s->by_look);
 }
 
 // The id FilaMan's FilamentDB import keeps on a filament, as text; it writes
@@ -197,12 +209,12 @@ static void judgeDbFilament(JsonObjectConst fil, FilamentSearch* s) {
   char db_id[16];
   filamentDbId(fil, db_id, sizeof(db_id));
   if (db_id[0] && strcmp(db_id, s->in->db_id) == 0) {
-    keepLowest(id, designation, &s->by_article, s->name_article);
+    keepLowest(fil, id, designation, &s->by_article);
     return;
   }
   if (strcasecmp(designation, s->in->db_name) == 0 &&
       strcasecmp(fil["material_type"] | "", s->material_type) == 0)
-    keepLowest(id, designation, &s->by_look, s->name_look);
+    keepLowest(fil, id, designation, &s->by_look);
 }
 
 static void filamentFilter(JsonDocument& filter) {
@@ -213,6 +225,7 @@ static void filamentFilter(JsonDocument& filter) {
   f["material_subgroup"]       = true;
   f["manufacturer_color_name"] = true;
   f["shop_url"]                = true;
+  f["default_spool_weight_g"]  = true;
   f["custom_fields"]["article_number"]     = true;
   f["custom_fields"]["bambu_product_code"] = true;
   f["custom_fields"]["filamentdb_id"]      = true;
@@ -257,17 +270,18 @@ static void dbMaterialType(const TagCreateInput& in, char* out, size_t out_size)
 // ------------------------------------------------------------
 
 static void planFound(const FilamentSearch& s, TagFilamentPlan* plan) {
-  const bool article = s.by_article > 0;
+  const FilamentHit& hit = s.by_article.id > 0 ? s.by_article : s.by_look;
   plan->state = TFS_FOUND;
-  plan->filament_id = article ? s.by_article : s.by_look;
-  snprintf(plan->name, sizeof(plan->name), "%s", article ? s.name_article : s.name_look);
+  plan->filament_id = hit.id;
+  plan->found_spool_weight_g = hit.spool_weight_g;
+  snprintf(plan->name, sizeof(plan->name), "%s", hit.name);
 }
 
 void filamanPlanTagFilament(const char* base_url, const char* api_key,
                             const TagCreateInput& in, TagFilamentPlan* plan) {
   tagFilamentPlanClear(plan);
   s_failed_code = 0;
-  plan->vendor_id = findManufacturer(base_url, api_key, in.vendor);
+  plan->vendor_id = findManufacturer(base_url, api_key, in.vendor, plan);
   if (plan->vendor_id < 0) { plan->state = TFS_FAILED; plan->http_code = s_failed_code; return; }
 
   if (plan->vendor_id > 0) {
@@ -279,7 +293,7 @@ void filamanPlanTagFilament(const char* base_url, const char* api_key,
       plan->http_code = s_failed_code;
       return;
     }
-    if (s.by_article > 0 || s.by_look > 0) { planFound(s, plan); return; }
+    if (s.by_article.id > 0 || s.by_look.id > 0) { planFound(s, plan); return; }
   }
   if (in.db_id[0]) {
     snprintf(plan->name, sizeof(plan->name), "%s", in.db_name);
@@ -470,9 +484,15 @@ static int createDbFilament(const char* base_url, const char* api_key, const Tag
 }
 
 int filamanCreateTagFilament(const char* base_url, const char* api_key,
-                             const TagCreateInput& in, const TagFilamentPlan& plan,
+                             const TagCreateInput& src, const TagFilamentPlan& plan,
                              int* out_filament_id) {
   *out_filament_id = 0;
+  // A maker's fixed core gives way to an empty spool the maker has on file:
+  // the filament is then created without one and the chain the lookup walks
+  // (spoolTare()) reaches the maker's. Spoolman's side does the same through
+  // the plan, see backendPlanTagFilament().
+  TagCreateInput in = src;
+  if (in.spool_weight_default && plan.vendor_spool_weight_g > 0) in.spool_weight_g = 0;
   if (plan.state == TFS_CREATE_DB && plan.db_found && !in.db_id[0]) {
     // The card merges the entry in before it creates; should it not have,
     // the tag still wins over the entry.
