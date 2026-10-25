@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "services/spool_start.h"
+
 // ============================================================
 //  A NEW SPOOL FROM A TAG
 //
@@ -62,6 +64,10 @@ struct TagCreateInput {
   // The empty spool, 0 when unknown: the spool then counts as full, since
   // nothing can be subtracted from the reading.
   int   spool_weight_g;
+  // spool_weight_g is a maker's fixed figure (Bambu's 250 g core), not a
+  // weight anyone stored: a value the backend has on file wins over it, see
+  // tagCreateTare().
+  bool  spool_weight_default;
   // The backend's own entry for that empty spool (BamBuddy's spool catalog),
   // 0 when none.
   int   spool_catalog_id;
@@ -141,6 +147,10 @@ struct TagFilamentPlan {
   char  db_multi_direction[16];
   float density;            // g/cm3, Spoolman requires one
   int   spool_weight_g;     // empty spool, 0 when unknown
+  // The empty spool as the inventory has it on file, for a spool created
+  // now: the found filament's own (TFS_FOUND) and the brand's. 0 when none.
+  int   found_spool_weight_g;
+  int   vendor_spool_weight_g;
   int   extruder_temp;
   int   bed_temp;
   int   http_code;          // TFS_FAILED
@@ -151,6 +161,14 @@ struct TagFilamentPlan {
 };
 
 void tagFilamentPlanClear(TagFilamentPlan* plan);
+
+// The empty spool a new spool is weighed against, in the order the lookup
+// walks for a spool that exists: the filament's own, else the brand's, else
+// what the input brought (a catalog entry, Bambu's fixed core). `from` names
+// the level (TareSource; TARE_SPOOL for the input's, since that is where it
+// would be written), `quality` how far to trust it. 0 when nothing is known.
+int tagCreateTare(const TagCreateInput& in, const TagFilamentPlan& plan,
+                  uint8_t* from, TareQuality* quality);
 
 // --- the rules, shared by the backends ---------------------------
 

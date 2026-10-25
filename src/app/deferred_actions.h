@@ -49,6 +49,9 @@ extern bool show_tag_view_pending;
 extern bool show_filaman_fields_pending;
 extern bool show_bambuddy_options_pending;
 extern bool show_bambuddy_dried_pending;
+// The companion field picker, opened from the Spoolman options and rebuilt by
+// its own rows after a pick - same shape as show_bambuddy_dried_pending.
+extern bool show_tag_comp_pending;
 // The tag write screen: opened from the scale menu, and re-rendered by its own
 // rows after a pick - same shape as show_bambuddy_dried_pending above.
 extern bool show_tagwrite_pending;
@@ -145,18 +148,29 @@ extern bool ble_card_forget_printer_pending;
 // The printer screen behind the Bluetooth screen's row, and its rows: each
 // change is saved and the screen rebuilt, the test print blocks for seconds.
 extern bool show_printer_pending;
-extern bool printer_cycle_model_pending;
-extern bool printer_cycle_media_pending;
 extern bool printer_test_pending;
 extern bool printer_calib_pending;   // the calibration page, browser or device
 extern bool show_printer_offset_pending;
 extern bool printer_forget_pending;
+extern bool printer_toggle_ask_pending;   // the "show before printing" row
+// The print sheet (ui/print_sheet.h): open it, rebuild it after a change on
+// it, close it, print from it, and leave it for the printer screen.
+extern bool show_print_sheet_pending;
+extern bool print_sheet_refresh_pending;
+extern bool print_sheet_close_pending;
+extern bool print_sheet_print_pending;
+extern bool print_sheet_printer_pending;
 // The label of the spool on the pad, from the More info header. Rendered
 // and printed from the loop: the print starts the BLE stack and blocks.
 extern bool print_spool_label_pending;
+// The same header without a Bluetooth printer, on FilaMan: the card that
+// sends the label to the PC (ui/pc_print_popup.h).
+extern bool show_pc_print_pending;
 // The label editor in the browser: print the last spool scanned with the
 // saved template, and fetch that spool's dates for the preview (HTTP).
 extern bool print_last_label_pending;
+// The same for the filament's label of that spool.
+extern bool print_last_filament_label_pending;
 extern bool label_dates_pending;
 // The print card's answer to a label the server would not draw: print the
 // same spool with the scale's own layout.

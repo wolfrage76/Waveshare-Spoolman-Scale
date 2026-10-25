@@ -30,3 +30,9 @@ void labelBmpHeader(uint16_t width, uint16_t height, uint8_t out[LABEL_BMP_HEADE
 // outside the raster come out white.
 void labelBmpRow(const LabelRaster& image, uint16_t x0, uint16_t width,
                  uint16_t file_row, uint8_t* out);
+
+// The same columns turned back upright, for a label printed upright: the
+// picture is image.height wide and `width` tall, its top the raster's column
+// x0. File row `file_row` into labelBmpRowBytes(image.height) bytes.
+void labelBmpRowUpright(const LabelRaster& image, uint16_t x0, uint16_t width,
+                        uint16_t file_row, uint8_t* out);

@@ -116,8 +116,9 @@ static int requiredExtraFields(const char* out[], int max) {
   // Happy Hare creates the field itself on any server it runs against, so this
   // is for the case where the scale is set up first.
   if (g_hw_uid_write && n < max) out[n++] = RFID_TAG_FIELD;
-  // extra.tag beside the native tags, for OpenSpoolman, behind its switch.
-  if (tagFieldIsNative() && g_osm_tag && n < max) out[n++] = tagFieldSpec(TAG_FIELD_TAG).key;
+  // The companion field beside the native tags, behind its choice.
+  const int comp = tagCompanionField();
+  if (comp >= 0 && n < max) out[n++] = tagFieldSpec((uint8_t)comp).key;
   return n;
 }
 

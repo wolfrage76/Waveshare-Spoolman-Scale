@@ -485,24 +485,23 @@ bool patchSpoolTag(int spool_id, const char* uuid, const char* const* field_valu
              spool_id, scanned, c2, c2 == 409 ? " CONFLICT" : "");
     }
 
-    // OpenSpoolman reads a spool's tray uuid out of extra.tag, and that is how
-    // it knows which spool to subtract a print from. It does not know about
-    // Spoolman's tag relation yet, so a Bambu spool linked only natively would
-    // stop being recognised there and the user would have to relink it by hand
-    // in OpenSpoolman. Writing the value costs one PATCH on an action the user
-    // asked for, and it is dropped again the day OpenSpoolman reads the
-    // relation.
+    // Tools that read a field rather than the relation would stop
+    // recognising a spool linked only natively, and the user would have to
+    // relink it by hand there. OpenSpoolman reads the tray uuid out of
+    // extra.tag to know which spool to subtract a print from; other setups
+    // poll their printers and read extra.nfc_id. Writing the value costs one
+    // PATCH on an action the user asked for.
     //
-    // Behind its switch (g_osm_tag), and the field is created on the first
-    // write when the server does not have it yet.
-    if (g_osm_tag && tagIsBambu(scanned) && !additional) {
-      const TagFieldSpec& companion = tagFieldSpec(TAG_FIELD_TAG);
-      char val[40];
-      tagFieldFormat(companion, scanned, val, sizeof(val));
+    // Behind its choice (g_tag_comp), and the field is created on the first
+    // write when the server does not have it yet. Skipped for a further tag:
+    // the field holds one value, and the first link already put it there.
+    char comp_val[40];
+    if (!additional && tagCompanionValue(scanned, comp_val, sizeof(comp_val))) {
+      const TagFieldSpec& companion = tagFieldSpec((uint8_t)tagCompanionField());
       int c = backendPatchExtraField(cfg_spoolman_base, spool_id,
-                                     companion.key, val);
-      logSDf("LINK native ID=%d kept tray uuid in %s='%s' HTTP %d",
-             spool_id, companion.key, val, c);
+                                     companion.key, comp_val);
+      logSDf("LINK native ID=%d kept uid in companion %s='%s' HTTP %d",
+             spool_id, companion.key, comp_val, c);
     }
 
     // What an extra field held before stays there (Nikolai, 25.09.2026): other
@@ -619,6 +618,37 @@ static bool clearBoundFieldIfSet(int spool_id, uint8_t field) {
   return true;
 }
 
+// "Only this tag": its UID comes out of every tag field that names it, as the
+// whole value or as one entry of a list, and nothing else is touched. The
+// search finds a spool through any of these fields, so one left behind would
+// bring the spool straight back on the next read - the companion field made
+// that the normal case, since it holds the very UID the relation does.
+//
+// Compared by the chip, not by the tray uuid: both chips of a Bambu spool
+// carry the same tray uuid, and the chip that stays still needs it. For every
+// other tag the two are the same value. The comparison is normalised, so a
+// field in colon notation matches the plain hex one just as well.
+static void unlinkTagFromFields(int spool_id, const char* uid) {
+  const char* tag_id = tagNativeUid(uid);
+  bool did = false;
+  for (uint8_t i = 0; i < TAG_FIELD_EXTRA_COUNT; i++) {
+    const char* v = sm_tag_values[i];
+    if (!v[0] || !cardUidsContain(v, tag_id)) continue;
+    const TagFieldSpec& s = tagFieldSpec(i);
+    if (!s.is_list) {
+      did = clearBoundFieldIfSet(spool_id, i) || did;
+      continue;
+    }
+    char rest[CARD_UIDS_MAX];
+    if (!cardUidsRemove(v, tag_id, rest, sizeof(rest))) continue;
+    int code = noteCode(backendPatchExtraField(cfg_spoolman_base, spool_id, s.key, rest));
+    logSDf("UNLINK one ID=%d uuid='%s' left %s='%s' HTTP %d",
+           spool_id, tag_id, s.key, rest, code);
+    did = true;
+  }
+  if (!did) logSDf("UNLINK ID=%d uuid='%s' in no tag field", spool_id, tag_id ? tag_id : "");
+}
+
 void unlinkCardUid(int spool_id, const char* uid, bool all) {
   s_net_failed = !wifi_ok;
   if (!wifi_ok) return;
@@ -628,8 +658,9 @@ void unlinkCardUid(int spool_id, const char* uid, bool all) {
   // while it is being migrated.
   if (backendHasNativeTags()) {
     // By the chip uid for a Bambu tag, because that is what the link was made
-    // with. The extra fields below still go by `uid`, the tray uuid, which is
-    // what they hold.
+    // with. The hw uid field below still goes by `uid`, the tray uuid, which
+    // is what it holds; "only this tag" compares the tag fields by the chip
+    // as well, see unlinkTagFromFields().
     const char* native_uid = tagNativeUid(uid);
     if (all) {
       // A Bambu spool holds up to three entries, one per chip plus the tray
@@ -659,28 +690,7 @@ void unlinkCardUid(int spool_id, const char* uid, bool all) {
     return;
   }
 
-  // One UID out of a list, leaving the rest of the list alone. Only a list
-  // field can do that; everything else is an all-or-nothing binding.
-  for (uint8_t i = 0; i < TAG_FIELD_EXTRA_COUNT; i++) {
-    const TagFieldSpec& s = tagFieldSpec(i);
-    if (!s.is_list || !sm_tag_values[i][0]) continue;
-
-    char rest[CARD_UIDS_MAX];
-    if (!cardUidsRemove(sm_tag_values[i], uid, rest, sizeof(rest))) continue;
-
-    int code = noteCode(backendPatchExtraField(cfg_spoolman_base, spool_id, s.key, rest));
-    logSDf("UNLINK one ID=%d uuid='%s' left %s='%s' HTTP %d",
-           spool_id, uid ? uid : "", s.key, rest, code);
-    return;
-  }
-
-  // The UID was in no list, so whatever brought the spool up was a single
-  // valued field, if anything was.
-  logSDf("UNLINK ID=%d uuid='%s' in no list", spool_id, uid ? uid : "");
-  bool did = false;
-  for (uint8_t i = 0; i < TAG_FIELD_EXTRA_COUNT; i++)
-    if (!tagFieldSpec(i).is_list && clearBoundFieldIfSet(spool_id, i)) { did = true; break; }
-  if (!did) logSDf("UNLINK ID=%d nothing to clear, no field set", spool_id);
+  unlinkTagFromFields(spool_id, uid);
 }
 
 void patchInitialWeight(float initial_w) {

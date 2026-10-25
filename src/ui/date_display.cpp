@@ -36,6 +36,15 @@ void isoToLocal(const char* iso, char* out, size_t len) {
     out[len-1] = '\0';
   }
 }
+void isoToLabelDate(const char* iso, char* out, size_t len) {
+  if (g_date_fmt == DATE_FMT_ISO || strlen(iso) < 10 || iso[4] != '-' || iso[7] != '-') {
+    isoToLocal(iso, out, len);
+    return;
+  }
+  if (g_date_fmt == DATE_FMT_US) snprintf(out, len, "%.2s/%.2s/%.2s", iso + 5, iso + 8, iso + 2);
+  else                           snprintf(out, len, "%.2s.%.2s.%.2s", iso + 8, iso + 5, iso + 2);
+}
+
 // Legacy alias so all existing calls continue to work
 void isoToDe(const char* iso, char* out, size_t len) { isoToLocal(iso, out, len); }
 

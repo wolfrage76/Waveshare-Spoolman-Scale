@@ -115,7 +115,7 @@ bool tagFieldHoldsSeveral();
 // Picks the native source once, on a server that has it, for an installation
 // that has never chosen - and moves one on extra.tag over once, since that was
 // this firmware's own default (extra.tag is still written for OpenSpoolman,
-// see g_osm_tag). nfc_id and card_uids are never overridden: somebody on
+// see g_tag_comp). nfc_id and card_uids are never overridden: somebody on
 // card_uids is running SpoolLink beside Spoolman and still needs that list
 // written, and taking that away because the server learned a new trick would
 // break exactly the compatibility they set up.
@@ -173,3 +173,31 @@ const char* tagNativeUid(const char* scanned);
 // about what goes on the wire: the native path sends an 8 character chip uid
 // for a Bambu tag, and a rule reading that length would call it an ntag.
 const char* tagFormatName(const char* scanned);
+
+// ============================================================
+//  COMPANION FIELD
+//
+//  Beside Spoolman's native tags, one extra field can keep getting a value,
+//  for tools that read a field and know nothing of the relation. Which one is
+//  g_tag_comp (services/user_options.h). The relation stays the binding: the
+//  companion is written on a link, filled on a placement when empty, and
+//  cleared only when the whole spool is unlinked.
+// ============================================================
+
+// TAG_FIELD_TAG or TAG_FIELD_NFC_ID, or -1 when there is none - switched off,
+// or the native tags are not the source, where the field is the binding.
+int tagCompanionField();
+
+// What the companion field gets for a link made with `scanned`, formatted as
+// that field's tag field would write it. False when it gets nothing: no
+// companion, or extra.tag and not a Bambu spool.
+bool tagCompanionValue(const char* scanned, char* out, size_t out_len);
+
+// Takes the old extra.tag switch over once, on true to extra.tag and on false
+// to off. Called by loadPrefs() after the options are read.
+void tagCompanionMigrate();
+
+// A choice on the tag field screen. Somebody moving from nfc_id to the native
+// tags picked nfc_id for another tool, so it keeps being written - unless a
+// companion is already chosen.
+void tagCompanionNoteSourceChange(uint8_t from, uint8_t to);

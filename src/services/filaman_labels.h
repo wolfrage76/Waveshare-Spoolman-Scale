@@ -62,3 +62,15 @@ struct FilamanLabelRequest {
 // where it gave some (FilaMan's "detail"), else the HTTP code. Any task.
 int filamanLabelRender(const FilamanLabelRequest& req, LabelRaster* out,
                        char* reason, size_t reason_size);
+
+// Returned when the server takes no PC print requests (FilaMan before 1.4.3).
+#define FM_LABEL_NO_PC_PRINT (-21)
+
+// Asks FilaMan to print a label on the PC (FilaMan 1.4.3): the request waits
+// there for five minutes, and a FilaMan tab open in the user's browser offers
+// to print it. No preset is sent, so FilaMan takes the one chosen in its label
+// designer, where the user lands anyway. Returns the HTTP code, 201 when the
+// request was filed; on anything else `reason` holds FilaMan's "detail" where
+// it gave one. Any task.
+int filamanLabelPrintRequest(const char* base_url, const char* api_key, bool filament,
+                             int id, char* reason, size_t reason_size, uint32_t timeout_ms);

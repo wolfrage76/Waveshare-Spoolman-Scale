@@ -84,15 +84,15 @@ Licensed under the GPL-3.0, like the original.
 
 ### *One Scale to rule them all.*
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/xadskCrPFu)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/K3KmKnrWhP)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/formfollowsfunction)
 
 > [!IMPORTANT]
 > **SpoolmanScale is a front end, not a database.** It needs one of three filament managers running on your network - [Spoolman](https://github.com/Donkie/Spoolman), [FilaMan](https://github.com/Fire-Devils/filaman-system) or [BamBuddy](https://github.com/maziggy/BamBuddy). That is where your spools live; the scale reads them, weighs them and writes the result back.
 >
-> No server yet? Any always-on machine will do, a Raspberry Pi included.
+> No server yet? Any always-on machine will do, a Raspberry Pi included. [SpoolmanScale Pro](https://niko11111.github.io/SpoolmanScale-Docs/pro/) turns a Pi into one: installed with one command, then set up and kept up to date from a web page.
 
-**SpoolmanScale** is an open-source ESP32-based filament scale with an NFC reader. It works with [Spoolman](https://github.com/Donkie/Spoolman), [FilaMan](https://github.com/Fire-Devils/filaman-system) and [BamBuddy](https://github.com/maziggy/BamBuddy), and you can switch between them at any time.
+**SpoolmanScale** is an ESP32-based filament scale with an NFC reader and open-source firmware. It works with [Spoolman](https://github.com/Donkie/Spoolman), [FilaMan](https://github.com/Fire-Devils/filaman-system) and [BamBuddy](https://github.com/maziggy/BamBuddy), and you can switch between them at any time.
 
 Yes, another filament scale – but hear me out, this one might actually earn a spot next to your printer. 😄
 
@@ -127,7 +127,7 @@ Firmware is available via the [Web Flasher](https://niko11111.github.io/Spoolman
   <img src="https://img.shields.io/badge/📖%20Documentation-Full%20Build%20Guide%2C%20Wiring%20%26%20Setup-28d49a?style=for-the-badge&logoColor=white" alt="Documentation"/>
 </a>
 
-Over 200 people are running a SpoolmanScale, and it is tested daily against a Spoolman library of 260+ active spools. If you have an even larger collection, I'd love to hear how it holds up. Questions or trouble? Join the [Discord](https://discord.gg/xadskCrPFu), happy to help.
+Over 200 people are running a SpoolmanScale, and it is tested daily against a Spoolman library of 260+ active spools. If you have an even larger collection, I'd love to hear how it holds up. Questions or trouble? Join the [Discord](https://discord.gg/K3KmKnrWhP), happy to help.
 
 ---
 <div align="center">
@@ -185,7 +185,7 @@ The firmware also runs on the **Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480),
 
 Prefer everything in one cart? A community member put together an AliExpress list with parts that work well too: 👉 [SpoolmanScale parts list on AliExpress](https://www.aliexpress.com/p/wish-manage/share.html?spm=a2g0o.cart.headerAcount.6.321738dayZTIa0&wishGroupId=800000022363334&smbPageCode=wishlist-amp&spreadId=E95BDFF0E1B4367408F1423D8C0ABF206981C084C10F93E3EE124B0AFA678D69)
 
-The 3D printable enclosure is available on MakerWorld:
+The 3D printable enclosure is available on MakerWorld, under MakerWorld's own license:
 👉 [makerworld.com/@FormFollowsF](https://makerworld.com/de/models/2713675-spoolmanscale#profileId-3005075)
 
 <a href="https://makerworld.com/de/models/2713675-spoolmanscale#profileId-3005075">
@@ -275,7 +275,7 @@ One thing only BamBuddy can do: create a spool straight from a Bambu tag. Materi
 
 ### Community requests & ideas
 
-- More ideas welcome – open an issue or join the [Discord](https://discord.gg/xadskCrPFu)!
+- More ideas welcome – open an issue or join the [Discord](https://discord.gg/K3KmKnrWhP)!
 
 ---
 
@@ -286,9 +286,9 @@ A lot of my free time – time I could have spent with my family – has gone in
 - ⭐ **Star this repo on GitHub** – it helps more people discover the project
 - ⭐⭐⭐⭐⭐ **Rate 5 stars & boost on MakerWorld** – every like, rating and boost helps: [makerworld.com/@FormFollowsF](https://makerworld.com/de/models/2713675-spoolmanscale#profileId-3005075)
 - ☕ **Support on Ko-fi** – even a single euro makes a difference: [ko-fi.com/formfollowsfunction](https://ko-fi.com/formfollowsfunction)
-- 💬 **Join the Discord** – share your build, report issues, or just say hi: [discord.gg/xadskCrPFu](https://discord.gg/xadskCrPFu)
+- 💬 **Join the Discord** – share your build, report issues, or just say hi: [discord.gg/K3KmKnrWhP](https://discord.gg/K3KmKnrWhP)
 
-Have a feature request? Post it in the [Discord](https://discord.gg/xadskCrPFu) or [open an issue](https://github.com/Niko11111/SpoolmanScale/issues) – I read every one of them and do my best to make it happen.
+Have a feature request? Post it in the [Discord](https://discord.gg/K3KmKnrWhP) or [open an issue](https://github.com/Niko11111/SpoolmanScale/issues) – I read every one of them and do my best to make it happen.
 
 **Thank you for your support. It means a lot. 🙏**
 
@@ -297,6 +297,8 @@ Have a feature request? Post it in the [Discord](https://discord.gg/xadskCrPFu) 
 ## License
 
 SpoolmanScale is licensed under the [GNU General Public License v3.0 or later](LICENSE). You may use, change and share it, also commercially; whoever distributes a changed version, for example on pre-flashed scales, must publish its source under the same license.
+
+The license covers the firmware and everything else in this repository. The enclosure is not part of it: it is a MakerWorld Exclusive under the Standard Digital File License - Community Use (SDFL-C).
 
 ---
 

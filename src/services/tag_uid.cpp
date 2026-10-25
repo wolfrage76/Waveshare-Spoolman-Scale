@@ -174,3 +174,36 @@ bool cardUidsRemove(const char* current, const char* uid,
   }
   return removed;
 }
+
+bool cardUidsMerge(char* list, size_t list_len, const char* more) {
+  if (!list || list_len == 0) return false;
+  const char *b, *e;
+  unquotedSpan(more, &b, &e);
+
+  bool fits = true;
+  const char* seg = b;
+  while (seg < e) {
+    const char* stop = (const char*)memchr(seg, ',', (size_t)(e - seg));
+    if (!stop) stop = e;
+
+    char raw[TAG_UID_NORM_MAX];
+    size_t n = (size_t)(stop - seg);
+    if (n >= sizeof(raw)) n = sizeof(raw) - 1;
+    memcpy(raw, seg, n);
+    raw[n] = '\0';
+
+    char merged[CARD_UIDS_MAX];
+    // ALREADY_PRESENT and an empty entry both leave the list as it is.
+    CardUidsResult r = cardUidsAppend(list, raw, merged, sizeof(merged));
+    if (r == CARD_UIDS_ADDED) {
+      if (strlen(merged) + 1 > list_len) fits = false;
+      else strcpy(list, merged);
+    } else if (r == CARD_UIDS_FULL && raw[0]) {
+      char norm[TAG_UID_NORM_MAX];
+      tagUidNormalize(raw, norm, sizeof(norm));
+      if (norm[0]) fits = false;
+    }
+    seg = (stop < e) ? stop + 1 : e;
+  }
+  return fits;
+}

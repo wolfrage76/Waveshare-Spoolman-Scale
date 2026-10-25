@@ -9,6 +9,7 @@ bool backendLastListPartial();
 #include <stddef.h>
 #include <stdint.h>
 #include "services/ams_slots.h"
+#include "services/backend.h"
 #include "services/filaman_labels.h"
 #include "services/spool_detail.h"
 #include "services/tag_create.h"
@@ -62,6 +63,27 @@ int  backendGetSpoolFieldsJson(const char* base_url, JsonDocument& doc,
        uint32_t timeout_ms = 4000, DeserializationError* out_err = nullptr);
 int  backendGetHealthCode(const char* base_url, uint32_t timeout_ms = 3000);
 bool backendGetVersion(const char* base_url, char* out_version, size_t out_size,
+       uint32_t timeout_ms = 3000);
+// The address the server's own labels link to, set by its user for that
+// purpose: Spoolman's "Base URL", BamBuddy's "External URL". In `out` as the
+// server holds it, "" when unset. Returns the HTTP code; BACKEND_NOT_SUPPORTED
+// on FilaMan, where each label design carries its own.
+int  backendGetLinkBase(char* out, size_t out_size, uint32_t timeout_ms = 3000);
+
+// Where the backend is, taken on the loop task for a request made on another
+// one: mode, address and key may change under a task while it runs, and a
+// request built from a half-written address goes to nobody. As long as the
+// buffers behind backendBaseUrl() and the keys in backend.cpp.
+#define BACKEND_TARGET_BASE_LEN 80
+#define BACKEND_TARGET_KEY_LEN  80
+struct BackendTarget {
+  BackendMode mode;
+  char base[BACKEND_TARGET_BASE_LEN];
+  char key[BACKEND_TARGET_KEY_LEN];   // FilaMan's API key, BamBuddy's, "" on Spoolman
+};
+void backendTargetSnapshot(BackendTarget* out);   // loop task
+// backendGetLinkBase() against a snapshot, from any task.
+int  backendGetLinkBaseAt(const BackendTarget& at, char* out, size_t out_size,
        uint32_t timeout_ms = 3000);
 int  backendCountActiveSpools(const char* base_url, uint32_t timeout_ms = 6000);
 
@@ -495,3 +517,9 @@ int  backendGetSpoolDetail(int spool_id, AmsSpoolDetail& out,
 int  backendLabelPresets(FilamanLabelPresetList* list, uint32_t timeout_ms);
 int  backendLabelRender(FilamanLabelRequest req, LabelRaster* out,
        char* reason, size_t reason_size);
+// A label printed on the PC instead: FilaMan files the request and a tab of
+// its own in the browser offers to print it (filamanLabelPrintRequest()).
+// `id` is the spool's, or its filament's when `filament` is set. 201 when it
+// was filed.
+int  backendLabelPrintRequest(bool filament, int id, char* reason, size_t reason_size,
+       uint32_t timeout_ms);

@@ -26,7 +26,8 @@ enum LabelPrinterModel : uint8_t {
   LP_MODEL_NONE = 0, LP_MODEL_M220 = 1, LP_MODEL_M110 = 2, LP_MODEL_M100 = 3,
   LP_MODEL_NIIMBOT_B = 4,     // the 50 mm NIIMBOT class: B1, B21, B203 ...
   LP_MODEL_NIIMBOT_M2 = 5,    // NIIMBOT M2, 300 dpi, thermal transfer
-  LP_MODEL_M120 = 6, LP_MODEL_M200 = 7, LP_MODEL_M221 = 8
+  LP_MODEL_M120 = 6, LP_MODEL_M200 = 7, LP_MODEL_M221 = 8,
+  LP_MODEL_M110S = 9          // the M110's bytes, a row as wide as the label
 };
 
 // Which bytes a model takes. Phomemo's two preambles share one write-only
@@ -72,8 +73,12 @@ struct LabelPrinterConfig {
 struct LabelMediaSize { uint8_t width_mm, length_mm; };
 extern const LabelMediaSize LABEL_MEDIA_SIZES[];
 extern const int LABEL_MEDIA_SIZE_COUNT;
+// Sizes on sale for these printers that no layout of ours fits yet: the
+// printer screen shows them greyed, so the step to them is visible.
+extern const LabelMediaSize LABEL_MEDIA_SIZES_PLANNED[];
+extern const int LABEL_MEDIA_PLANNED_COUNT;
 
-// The models in the order the printer screen cycles and the browser lists
+// The models in the order the printer screen's grid and the browser list
 // them: proven first, experimental after. NONE is never in it.
 extern const LabelPrinterModel LABEL_PRINTER_MODELS[];
 extern const int LABEL_PRINTER_MODEL_COUNT;
@@ -109,6 +114,9 @@ const LabelPrinterProfile& labelPrinterProfile(LabelPrinterModel model);
 LabelPrinterConfig labelPrinterLoadConfig();
 bool labelPrinterSaveConfig(const LabelPrinterConfig& config);
 bool labelPrinterConfigured(const LabelPrinterConfig& config);
+// The models we have on the desk and test every label feature on first; the
+// manual's page of recommended printers names the same ones.
+bool labelPrinterRecommended(LabelPrinterModel model);
 // Drops the device, keeps model and label size.
 bool labelPrinterForget();
 // True when this address is the picked printer.
@@ -139,3 +147,15 @@ LabelPrintResult labelPrinterPrint(const LabelPrinterConfig& config,
                                    const LabelRaster& image, BleProgressFn progress);
 // The StringID that says what a result means, for a popup or a status line.
 int labelPrintResultString(LabelPrintResult result);
+
+// Whether the model takes label stock of this size.
+bool labelPrinterTakesMedia(LabelPrinterModel model, uint16_t width_mm, uint16_t length_mm);
+
+// The next stock size the model can take, after the current one; the first
+// fitting one when the current one is not in the table. Only the config.
+void labelPrinterNextMedia(LabelPrinterConfig& c);
+
+// Whether "Print label" on the scale shows the print sheet first (preview,
+// kind, arrangement) or prints at once. On until switched off.
+bool labelPrinterAskFirst();
+bool labelPrinterSetAskFirst(bool ask);

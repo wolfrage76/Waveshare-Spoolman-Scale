@@ -34,6 +34,11 @@ int spoolmanGetSpoolFieldsJson(const char* base_url, JsonDocument& doc,
 int spoolmanGetHealthCode(const char* base_url, uint32_t timeout_ms = 3000);
 bool spoolmanIsReachable(const char* base_url, uint32_t timeout_ms = 3000);
 bool spoolmanGetVersion(const char* base_url, char* out_version, size_t out_size, uint32_t timeout_ms = 3000);
+// Spoolman's "Base URL" (Settings > General), the address its own label
+// dialog puts in a QR code: in `out` as stored, "" when unset. Returns the
+// HTTP code, 404 on a Spoolman older than the setting.
+int spoolmanGetBaseUrlSetting(const char* base_url, char* out, size_t out_size,
+                              uint32_t timeout_ms = 3000);
 int spoolmanCountActiveSpools(const char* base_url, uint32_t timeout_ms = 6000);
 // Count of the active spools and the highest id among them, from one request
 // of under a kilobyte. Returns the HTTP code as it came, -2 for a body that

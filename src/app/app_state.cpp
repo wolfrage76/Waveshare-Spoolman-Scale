@@ -45,6 +45,7 @@ lv_obj_t *scr_bambuddy_dried = nullptr;
 lv_obj_t *scr_tagwrite       = nullptr;
 lv_obj_t *scr_timezone = nullptr;
 lv_obj_t *scr_spoolman_options = nullptr;
+lv_obj_t *scr_tag_comp = nullptr;
 lv_obj_t *scr_spoolman   = nullptr;
 lv_obj_t *scr_spoolman_fail = nullptr;
 lv_obj_t *scr_welcome    = nullptr;
@@ -107,20 +108,34 @@ const char* smSelectedTagValue() {
   return sm_tag_values[tagFieldEffective()];
 }
 
-int smBoundUidCount() {
+// The entry count, every copy counted. Only the fallback for a set of UIDs too
+// long to tell apart in one buffer.
+static int smBoundEntryCount() {
   int n = 0;
   for (uint8_t i = 0; i < TAG_FIELD_EXTRA_COUNT; i++) {
     if (!sm_tag_values[i][0]) continue;
     n += tagFieldSpec(i).is_list ? cardUidsCount(sm_tag_values[i]) : 1;
   }
+  return n + cardUidsCount(sm_tag_values[TAG_FIELD_NATIVE]);
+}
+
+int smBoundUidCount() {
+  // Distinct UIDs, not entries. The companion field and a field from before
+  // the move to the native tags hold the very UID the relation does, and
+  // counting it three times offered "only this tag" on a spool with one.
+  //
   // Spoolman's relation is held as a list in the slot beside them, whatever
   // its spec says: is_list there drives the UI's multi tag switch, while
   // several tags per spool are the normal case rather than a format. Counting
   // them is what makes the unlink popup offer "all" at all - without this a
   // Bambu spool with three entries looked like a single binding, and the only
   // reachable answer dropped one of them.
-  n += cardUidsCount(sm_tag_values[TAG_FIELD_NATIVE]);
-  return n;
+  char seen[CARD_UIDS_MAX] = "";
+  bool fits = true;
+  for (uint8_t i = 0; i < TAG_FIELD_COUNT; i++) {
+    if (sm_tag_values[i][0]) fits = cardUidsMerge(seen, sizeof(seen), sm_tag_values[i]) && fits;
+  }
+  return fits ? cardUidsCount(seen) : smBoundEntryCount();
 }
 
 int smBoundSourceCount() {
@@ -219,6 +234,7 @@ lv_obj_t *lbl_spool_tare = nullptr;
 
 lv_obj_t *btn_dried  = nullptr;
 lv_obj_t *btn_link   = nullptr;
+lv_obj_t *btn_by_id  = nullptr;
 lv_obj_t *btn_weight_main = nullptr;
 lv_obj_t *btn_location = nullptr;
 lv_obj_t *lbl_no_scale = nullptr;

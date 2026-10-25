@@ -46,13 +46,8 @@ static void addZoneRow(lv_obj_t *list, size_t idx, int active_idx) {
   lv_obj_t *btn = makeListBtn(list, "", TZ_LIST[idx].name, TZ_LIST[idx].offset,
                               active);
 
-  // Last child is the arrow, which here shows which entry is the chosen one.
-  lv_obj_t *arr_lbl = lv_obj_get_child(btn, -1);
-  if (arr_lbl) {
-    lv_label_set_text(arr_lbl, active ? LV_SYMBOL_OK : "");
-    lv_obj_set_style_text_color(arr_lbl, lv_color_hex(UI_COL_ACCENT), 0);
-    lv_obj_set_style_text_font(arr_lbl, &lv_font_montserrat_ext_16, 0);
-  }
+  // The arrow becomes the tick of the chosen entry.
+  markListBtnChosen(btn, active);
 
   lv_obj_set_user_data(btn, (void *)(intptr_t)idx);
   lv_obj_add_event_cb(btn, [](lv_event_t *e) {

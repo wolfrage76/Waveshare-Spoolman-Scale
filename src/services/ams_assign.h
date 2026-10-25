@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "app_config.h"
+
 // ============================================================
 //  AUTO AMS ASSIGNMENT
 //
@@ -42,15 +44,12 @@ extern int     g_ams_window_s;   // NVS "ams_window",  cached copy of the server
 // it - the weight was written when it was measured.
 #define AMS_PENDING_MAX_MS     120000
 
-// How still the pad has to be before a reading counts as the spool's weight,
-// for the case where nothing was weighed on purpose. Deliberately looser and
-// far shorter than the auto weight criterion (0.5 g over 3 s): there the user
-// is waiting for a countdown, here they are putting a spool down and picking
-// it up again. With the 1.6 s moving average in front of it, this settles
-// about 2.4 s after the spool lands instead of the 5 s the strict values
-// needed - which is why the question never appeared for a short placement.
-#define AMS_SETTLE_TOL_G       2.0f
-#define AMS_SETTLE_MS          800
+// How still the pad has to be before a reading counts as the spool's weight:
+// the pad's one criterion in app_config.h, shared with the card for an
+// unknown spool. The strict values made the question never appear for a
+// short placement.
+#define AMS_SETTLE_TOL_G       PAD_SETTLE_TOL_G
+#define AMS_SETTLE_MS          PAD_SETTLE_MS
 
 // Bounds for the server side auto_assign_timeout.
 #define AMS_WINDOW_MIN_S       5

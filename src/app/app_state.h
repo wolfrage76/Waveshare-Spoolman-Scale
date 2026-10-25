@@ -60,6 +60,7 @@ extern lv_obj_t *scr_bambuddy_dried;
 extern lv_obj_t *scr_tagwrite;   // writing a tag after a link
 extern lv_obj_t *scr_timezone;
 extern lv_obj_t *scr_spoolman_options;
+extern lv_obj_t *scr_tag_comp;   // companion field beside the native tags
 extern lv_obj_t *scr_spoolman;
 extern lv_obj_t *scr_spoolman_fail;
 extern lv_obj_t *scr_welcome;
@@ -286,6 +287,7 @@ extern lv_obj_t *lbl_spool_tare;   // the spool weight the netto subtracts, bag-
 
 extern lv_obj_t *btn_dried;
 extern lv_obj_t *btn_link;
+extern lv_obj_t *btn_by_id;   // "Spool by ID", the left slot while nothing is on screen
 extern lv_obj_t *btn_weight_main;
 // Slot 1 of the button bar on a device with no load cell, where the weight
 // button would otherwise sit. Only one of the two ever exists - buildUI()

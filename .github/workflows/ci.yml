@@ -44,6 +44,18 @@ jobs:
         run: python3 test/test_ble_discovery.py
       - name: Test FilaMan label orientation
         run: python3 test/test_label_fit.py
+      - name: Test label raster crop
+        run: python3 test/test_label_raster_crop.py
+      - name: Test label empty fields
+        run: python3 test/test_label_gaps.py
+      - name: Test local date parser
+        run: python3 test/test_local_date.py
+      - name: Test accent fold
+        run: python3 test/test_accent_fold.py
+      - name: Test card uids merge
+        run: python3 test/test_card_uids_merge.py
+      - name: Test spool start rules
+        run: python3 test/test_spool_start.py
 
   build:
     name: Build ${{ matrix.env }}

@@ -45,6 +45,7 @@ static AskMode  s_mode          = ASK_WRITE;
 // cache, and the question about a tag that is still lying there would never be
 // asked at all.
 static char     s_erase_fmt[12] = "";
+static char     s_erase_uid[26] = "";       // the tag the erase is for, as the question saw it
 
 // Both sides of a mismatch, one line each, plus the colour of each side as a
 // swatch: a hex code says two colours differ, a swatch says how. Built while
@@ -104,14 +105,23 @@ void requestTagEraseAsk() {
   // a tag that carries nothing has nothing to lose.
   if (!tagIsWritableNtag() || !tagCachedHasRecord()) return;
   snprintf(s_erase_fmt, sizeof(s_erase_fmt), "%s", tagCachedInfo()->fmt);
+  snprintf(s_erase_uid, sizeof(s_erase_uid), "%s", tagCachedUid());
   erase_ask_pending = true;
 }
 
-void requestTagEraseNow() {
+void requestTagEraseNow(const char* uid) {
   // The same gate as the question: a Bambu or MIFARE tag, or one carrying
   // nothing of ours, is left alone even though the user agreed to an erase.
   if (!tagIsWritableNtag() || !tagCachedHasRecord()) return;
+  // The question named a tag; the unlink took seconds. Another one by now
+  // was never agreed to.
+  if (uid && uid[0] && strcmp(uid, tagCachedUid()) != 0) {
+    logSDf("TagWritePopup: erase was agreed for %s, the reader holds %s - dropped",
+           uid, tagCachedUid());
+    return;
+  }
   snprintf(s_erase_fmt, sizeof(s_erase_fmt), "%s", tagCachedInfo()->fmt);
+  snprintf(s_erase_uid, sizeof(s_erase_uid), "%s", tagCachedUid());
   erase_now_pending = true;
 }
 
@@ -284,6 +294,7 @@ void askTagEraseFromView() {
   // question itself names no format, it says what erasing does.
   snprintf(s_erase_fmt, sizeof(s_erase_fmt), "%s",
            tagCachedInfo()->fmt[0] ? tagCachedInfo()->fmt : "?");
+  snprintf(s_erase_uid, sizeof(s_erase_uid), "%s", tagCachedUid());
   s_mode = ASK_ERASE;
   logSDf("SHOW: TagEraseAskPopup from the tag view, tag holds %s", s_erase_fmt);
   buildAsk(STR_TV_ERASE_TITLE, STR_TV_ERASE_HINT, STR_TW_BTN_ERASE, STR_TW_BTN_KEEP);
@@ -390,7 +401,7 @@ static void queueTagJob() {
   // OpenSpool with no way to say otherwise, which left an ACE user no path at
   // all from the device.
   const bool queued = (s_mode == ASK_ERASE)
-                        ? tagWriteRequest(0, TAG_FMT_ERASE, false)
+                        ? tagWriteRequestErase(s_erase_uid)
                         : tagWriteRequest(s_spool_id, (TagFormat)g_tagwrite_fmt, false);
   if (queued) {
     s_watching = true;

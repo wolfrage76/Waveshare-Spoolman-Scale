@@ -33,6 +33,7 @@
 #include "ui/more_info_screen.h"
 #include "ui/settings_screen.h"
 #include "ui/spool_flow.h"
+#include "ui/spool_id_pad.h"
 #include "ui/theme.h"
 #include "ui_common.h"
 
@@ -903,6 +904,8 @@ void buildUI() {
   lv_obj_set_style_text_font(lbl_cp, &lv_font_montserrat_ext_16, 0);
   lv_obj_set_style_text_align(lbl_cp, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(lbl_cp, LV_ALIGN_CENTER, 0, 0);
+
+  btn_by_id = buildSpoolByIdButton(btn_bar);
 
   // Settings/Burger button (x=428, w=44)
   lv_obj_t *btn_menu = lv_btn_create(btn_bar);

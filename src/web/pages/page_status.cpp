@@ -40,9 +40,9 @@ static String uptimeStr() {
 }
 
 static const char* rssiWord(int r) {
-  if (r >= -50) return "excellent";
-  if (r >= -65) return "good";
-  if (r >= -75) return "fair";
+  if (r >= SIGNAL_BARS_4_DBM) return "excellent";
+  if (r >= SIGNAL_BARS_3_DBM) return "good";
+  if (r >= SIGNAL_BARS_2_DBM) return "fair";
   return "weak";
 }
 
@@ -135,7 +135,8 @@ static String uptimeText() {
 // still there, quietly, for whoever wants it.
 static String signalBars() {
   const int r = wifiManagerRSSI();
-  const int bars = (r >= -50) ? 4 : (r >= -65) ? 3 : (r >= -75) ? 2 : 1;
+  const int bars = (r >= SIGNAL_BARS_4_DBM) ? 4 : (r >= SIGNAL_BARS_3_DBM) ? 3
+                 : (r >= SIGNAL_BARS_2_DBM) ? 2 : 1;
   String s = F("<span class='sig'>");
   for (int i = 1; i <= 4; i++) {
     s += F("<i style='background:");

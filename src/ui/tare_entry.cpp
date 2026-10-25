@@ -122,45 +122,14 @@ static void onKey(lv_event_t *e) {
   refreshPad();
 }
 
-static lv_obj_t *padButton(lv_obj_t *parent, int x, int y, int w, int h,
-                           uint32_t bg, uint32_t bg_pressed) {
-  lv_obj_t *b = lv_btn_create(parent);
-  lv_obj_set_size(b, w, h);
-  lv_obj_set_pos(b, x, y);
-  lv_obj_set_style_bg_color(b, lv_color_hex(bg), 0);
-  lv_obj_set_style_bg_color(b, lv_color_hex(bg_pressed), LV_STATE_PRESSED);
-  lv_obj_set_style_radius(b, UI_RADIUS_INPUT, 0);
-  lv_obj_set_style_shadow_width(b, 0, 0);
-  lv_obj_set_style_border_width(b, 1, 0);
-  lv_obj_set_style_border_color(b, lv_color_hex(UI_COL_LINE_SOFT), 0);
-  return b;
-}
-
-static lv_obj_t *padLabel(lv_obj_t *btn, const char *text, uint32_t col, const lv_font_t *font) {
-  lv_obj_t *l = lv_label_create(btn);
-  lv_label_set_text(l, text);
-  lv_obj_set_style_text_color(l, lv_color_hex(col), 0);
-  lv_obj_set_style_text_font(l, font, 0);
-  lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_center(l);
-  return l;
-}
-
 static void showTarePad() {
   logSD("SHOW: TareEntryPad");
   releaseScreen(&s_pad);
   s_input[0] = '\0';
 
-  lv_obj_t *scr = lv_obj_create(lv_scr_act());
+  lv_obj_t *scr = buildOverlayScreen();
   s_pad = scr;
-  lv_obj_set_size(scr, 480, 320);
-  lv_obj_set_pos(scr, 0, 0);
-  lv_obj_set_style_bg_color(scr, lv_color_hex(UI_COL_GROUND), 0);
-  lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_width(scr, 0, 0);
-  lv_obj_set_style_radius(scr, 0, 0);
-  lv_obj_set_style_pad_all(scr, 0, 0);
-  lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_clear_flag(scr, LV_OBJ_FLAG_HIDDEN);
 
   lv_obj_t *title = lv_label_create(scr);
   lv_label_set_text(title, T(STR_TARE_ENTER_TITLE));

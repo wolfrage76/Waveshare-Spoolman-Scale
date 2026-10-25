@@ -16,26 +16,44 @@
 
 // The manual is last in the arrays and first on the screen: most questions
 // people ask are answered there (Nikolai, 25.09.2026).
-#define QR_COUNT 5
+#define QR_COUNT 6
 #define QR_DOCS  4
-static const char* QR_TITLES[QR_COUNT] = { "Ko-fi", "GitHub", "Discord", "MakerWorld", nullptr };
+// Not a tile here: the Bluetooth screen opens it (QR_PRINTERS in info_screen.h).
+static_assert(QR_PRINTERS == 5, "QR_PRINTERS is the last entry of the arrays below");
+static const char* QR_TITLES[QR_COUNT] = { "Ko-fi", "GitHub", "Discord", "MakerWorld", nullptr, nullptr };
 static const char* QR_URLS[QR_COUNT]   = {
   "https://ko-fi.com/formfollowsfunction",
   "https://github.com/Niko11111/SpoolmanScale",
-  "https://discord.gg/xadskCrPFu",
+  "https://discord.gg/K3KmKnrWhP",
   "https://makerworld.com/de/@FormFollowsF/upload",
-  "https://niko11111.github.io/SpoolmanScale-Docs/"
+  "https://niko11111.github.io/SpoolmanScale-Docs/",
+  nullptr   // by language, see qrUrl()
 };
 static const char* QR_URLS_DISPLAY[QR_COUNT] = {
   "ko-fi.com/formfollowsfunction",
   "github.com/Niko11111/SpoolmanScale",
-  "discord.gg/xadskCrPFu",
+  "discord.gg/K3KmKnrWhP",
   "makerworld.com/de/@FormFollowsF/upload",
-  "niko11111.github.io/SpoolmanScale-Docs"
+  "niko11111.github.io/SpoolmanScale-Docs",
+  nullptr
 };
 
 static const char* qrTitle(int idx) {
-  return idx == QR_DOCS ? T(STR_QR_DOCS_TITLE) : QR_TITLES[idx];
+  if (idx == QR_DOCS) return T(STR_QR_DOCS_TITLE);
+  if (idx == QR_PRINTERS) return T(STR_W_P_SHOP_TITLE);
+  return QR_TITLES[idx];
+}
+
+// The manual has a German page and an English one; French readers get the
+// English, as in the browser's link.
+static const char* qrUrl(int idx) {
+  if (idx != QR_PRINTERS) return QR_URLS[idx];
+  return g_lang == LANG_DE ? DOCS_URL "de/use/printers/" : DOCS_URL "use/printers/";
+}
+
+// What stands under the title, the address without its scheme.
+static const char* qrUrlDisplay(int idx) {
+  return idx == QR_PRINTERS ? qrUrl(idx) + strlen("https://") : QR_URLS_DISPLAY[idx];
 }
 
 static const char* getQRDesc(int idx) {
@@ -45,6 +63,7 @@ static const char* getQRDesc(int idx) {
     case 2: return T(STR_QR_DISCORD_DESC);
     case 3: return T(STR_QR_MAKER_DESC);
     case QR_DOCS: return T(STR_QR_DOCS_DESC);
+    case QR_PRINTERS: return T(STR_W_P_SHOP_HINT);
     default: return "";
   }
 }
@@ -53,7 +72,7 @@ void showQRPopup(int idx) {
   if (idx < 0 || idx >= QR_COUNT) return;
 
   logSDf("SHOW: QRPopup idx=%d", idx);
-  const char* names[QR_COUNT] = {"Ko-fi", "GitHub", "Discord", "MakerWorld", "Docs"};
+  const char* names[QR_COUNT] = {"Ko-fi", "GitHub", "Discord", "MakerWorld", "Docs", "Printers"};
   logSDf("UI: Screen -> QR Popup (%s)", names[idx]);
   lv_obj_t *popup = lv_obj_create(lv_scr_act());
   lv_obj_set_size(popup, 480, 320);
@@ -116,18 +135,18 @@ void showQRPopup(int idx) {
   lv_obj_align(lbl_desc, LV_ALIGN_TOP_MID, 0, 50);
 
   lv_obj_t *lbl_url = lv_label_create(popup);
-  lv_label_set_text(lbl_url, QR_URLS_DISPLAY[idx]);
+  lv_label_set_text(lbl_url, qrUrlDisplay(idx));
   lv_obj_set_style_text_color(lbl_url, lv_color_hex(UI_COL_ACCENT), 0);
   lv_obj_set_style_text_font(lbl_url, &lv_font_montserrat_ext_16, 0);
   lv_obj_set_style_text_align(lbl_url, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(lbl_url, LV_ALIGN_TOP_MID, 0, 84);
 
-  size_t url_len = strlen(QR_URLS[idx]);
+  size_t url_len = strlen(qrUrl(idx));
   logSDf("QR: %s about to create url_len=%u heap=%d PSRAM=%d",
     names[idx], (unsigned)url_len, ESP.getFreeHeap(), ESP.getFreePsram());
   lv_obj_t *qr = lv_qrcode_create(popup, 160, lv_color_hex(UI_COL_QR_DARK), lv_color_hex(UI_COL_QR_LIGHT));
   logSDf("QR: %s create OK heap=%d", names[idx], ESP.getFreeHeap());
-  lv_res_t qr_res = lv_qrcode_update(qr, QR_URLS[idx], url_len);
+  lv_res_t qr_res = lv_qrcode_update(qr, qrUrl(idx), url_len);
   logSDf("QR: %s update done res=%d heap=%d", names[idx], (int)qr_res, ESP.getFreeHeap());
   lv_obj_align(qr, LV_ALIGN_BOTTOM_MID, 0, -20);
   logSDf("QR: %s align done", names[idx]);

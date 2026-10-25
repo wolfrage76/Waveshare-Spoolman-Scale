@@ -2,6 +2,8 @@
 
 #include <lvgl.h>
 
+#include "services/spool_color.h"
+
 // spoolHasAnyTag(JsonObjectConst), the link flow's rule for what counts as
 // bound, is public as well but declared where it is used, in
 // spoolman_lookup.cpp: this header is included after lang.h in places, and
@@ -13,7 +15,32 @@ void fetchUnlinkedSpools();
 // linkFetchTick() in spool_flow.cpp), FAILED when there is none to show - the
 // popup explains, the picker stays shut.
 enum LinkFetch : uint8_t { LINK_FETCH_FAILED, LINK_FETCH_DONE, LINK_FETCH_PENDING };
-LinkFetch fetchAllSpoolsForLink(bool is_bambu, const char* material_filter, bool archived_only = false);
+// `cache_only`: a list the spool cache cannot prove is not fetched - FAILED,
+// without the waiting card and without a word about the server.
+LinkFetch fetchAllSpoolsForLink(bool is_bambu, const char* material_filter, bool archived_only = false,
+                                bool cache_only = false);
+
+// One spool the link list would put at its top for the Bambu tag on the pad.
+struct LinkCandidate {
+  int   id;
+  char  name[64];                          // material and name, as the list row
+  char  color_hex[SPOOL_COLOR_HEX_MAX];
+  float weight_g;                          // what the list row shows
+  bool  unused;                            // never weighed: weight_g is the total, "new"
+  bool  weight_hit;                        // and whether it matches the scale
+};
+// The spools of the link list that agree with the Bambu tag on the pad, best
+// first, in the list's own order: the same filter, the same ranks, and the
+// same tag comparison as the link confirmation. Out of the spool cache only,
+// so it costs one stamp request and never a download. Fills up to `max`,
+// returns how many there are in all, -1 when the cache could not serve.
+// Loop task only.
+int linkSuggestCandidates(LinkCandidate* out, int max);
+// The link list for the Bambu tag on the pad, as "Link" opens it. With a
+// spool id from linkSuggestCandidates() the list opens with that spool's
+// confirmation over it, as if its row had been tapped; 0 opens the list
+// alone. Loop task only.
+void linkSuggestOpenList(int pick_spool_id);
 void closeLinkList();
 void showLinkList();
 void showLinkEntryPopup(bool is_bambu);

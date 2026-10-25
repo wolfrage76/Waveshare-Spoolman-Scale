@@ -46,3 +46,14 @@ void labelBmpRow(const LabelRaster& image, uint16_t x0, uint16_t width,
   for (uint32_t x = 0; x < width; x++)
     if (rasterBit(image, uint32_t(x0) + x, y)) out[x / 8] |= 0x80 >> (x % 8);
 }
+
+void labelBmpRowUpright(const LabelRaster& image, uint16_t x0, uint16_t width,
+                        uint16_t file_row, uint8_t* out) {
+  const uint16_t w = image.height;
+  memset(out, 0, labelBmpRowBytes(w));
+  if (file_row >= width) return;
+  // Upright dot (ux, uy) is raster dot (x0 + uy, height - 1 - ux).
+  const uint32_t rx = uint32_t(x0) + (width - 1 - file_row);
+  for (uint16_t ux = 0; ux < w; ux++)
+    if (rasterBit(image, rx, w - 1 - ux)) out[ux / 8] |= 0x80 >> (ux % 8);
+}

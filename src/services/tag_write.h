@@ -45,6 +45,7 @@ enum TagWriteResult : uint8_t {
   TW_ERR_BACKEND,     // the spool could not be fetched
   TW_ERR_SPACE,       // too small, or no NDEF capability container
   TW_ERR_WRITE,       // a page write failed part way through
+  TW_ERR_OTHER_TAG,   // the erase was asked about another tag than the one lying there
 };
 
 // How far a write or an erase has come, in pages, for a bar on the device.
@@ -60,6 +61,11 @@ void tagWriteSetProgress(TagWriteProgressFn fn);
 // link also writes the tag's UID onto the spool record, so presenting it
 // selects that spool.
 bool tagWriteRequest(int spool_id, TagFormat fmt, bool link);
+// An erase bound to one tag: uid_expected as g_tag.uid_str spells it, the
+// tag the question was asked about. The tick refuses when another lies there
+// by then; the seconds between question and erase are long enough to swap.
+// An empty uid erases whatever writable tag is on the reader, as before.
+bool tagWriteRequestErase(const char* uid_expected);
 void tagWriteTick();
 
 // The same write without the detour through the parking slot: fetches the

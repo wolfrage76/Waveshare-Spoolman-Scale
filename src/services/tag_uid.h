@@ -71,3 +71,9 @@ CardUidsResult cardUidsAppend(const char* current, const char* uid,
 // not in there, in which case `out` still holds the unchanged list.
 bool cardUidsRemove(const char* current, const char* uid,
                     char* out, size_t out_len);
+
+// Adds to `list` every entry of `more` it does not hold yet, compared
+// normalised and written as plain uppercase hex. `more` may be a single UID or
+// a list in any of the forms above. Returns false when an entry did not fit;
+// `list` then holds everything that did and stays well formed.
+bool cardUidsMerge(char* list, size_t list_len, const char* more);

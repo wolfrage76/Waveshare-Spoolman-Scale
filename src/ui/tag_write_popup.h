@@ -33,8 +33,10 @@ void startTagWriteNoAsk(int spool_id);
 void requestTagEraseAsk();
 // The same, with the question already answered: after "release the tag" the
 // tag on the reader is erased straight away. Same gate, so a Bambu tag, a
-// MIFARE card or a tag without a record of ours is never touched.
-void requestTagEraseNow();
+// MIFARE card or a tag without a record of ours is never touched. uid is the
+// tag the question named, as g_tag.uid_str spells it: another tag lying
+// there by now is left alone. Empty for "the one on the reader".
+void requestTagEraseNow(const char* uid);
 
 // The tag view's erase button. Its own words, because nothing was unlinked,
 // and any NTAG that is not blank qualifies: a record this scale cannot read is

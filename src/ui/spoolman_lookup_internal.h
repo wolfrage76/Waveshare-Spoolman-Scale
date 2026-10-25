@@ -67,6 +67,7 @@ enum LookupStep : uint8_t {
 // ---- in spoolman_lookup.cpp ------------------------------------------------
 
 extern bool          s_verdict_unknown;
+extern bool          s_verdict_certain;
 extern ShadowVerdict s_shadow;
 
 int   spoolTagRank(JsonObjectConst spool, const char* uid);

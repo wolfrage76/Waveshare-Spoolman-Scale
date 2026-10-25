@@ -5,6 +5,9 @@
 
 void isoToLocal(const char* iso, char* out, size_t len);
 void isoToDe(const char* iso, char* out, size_t len);
+// The same for a printed label: the year in two digits where the format
+// allows it (31.12.26, 12/31/26). ISO keeps four: 26-12-31 reads as anything.
+void isoToLabelDate(const char* iso, char* out, size_t len);
 void driedDisplayStr(const char* de_date, char* out, size_t len);
 void applyDriedLabel(lv_obj_t* lbl_val, lv_obj_t* lbl_sym, const char* de_date);
 

@@ -379,6 +379,21 @@ bool spoolmanGetVersion(const char* base_url, char* out_version, size_t out_size
   return true;
 }
 
+int spoolmanGetBaseUrlSetting(const char* base_url, char* out, size_t out_size,
+                              uint32_t timeout_ms) {
+  if (!out || out_size == 0) return -1;
+  out[0] = '\0';
+  JsonDocument doc;
+  const int code = spoolmanGetJson(base_url, "/api/v1/setting/base_url", doc, timeout_ms);
+  if (code != 200) return code;
+  // A setting's value is JSON text of its own: the address arrives as
+  // "\"https://...\"", an unset one as "\"\"".
+  JsonDocument value;
+  if (deserializeJson(value, doc["value"] | "") != DeserializationError::Ok) return -2;
+  snprintf(out, out_size, "%s", value.as<const char*>() ? value.as<const char*>() : "");
+  return code;
+}
+
 int spoolmanCountActiveSpools(const char* base_url, uint32_t timeout_ms) {
   if (!hasBaseUrl(base_url)) return -1;
 
@@ -463,10 +478,17 @@ int spoolmanCreateSpool(const char* base_url, int filament_id, float initial_wei
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(timeout_ms);
 
+  // Without a spool weight the field stays out: a 0 would stand for a weighed
+  // nothing, and Spoolman would not walk up to the filament's or the brand's.
   char body[256];
-  snprintf(body, sizeof(body),
-    "{\"filament_id\":%d,\"initial_weight\":%.0f,\"spool_weight\":%.0f,\"remaining_weight\":%.0f}",
-    filament_id, initial_weight, spool_weight, remaining_weight);
+  if (spool_weight > 0.0f)
+    snprintf(body, sizeof(body),
+      "{\"filament_id\":%d,\"initial_weight\":%.0f,\"spool_weight\":%.0f,\"remaining_weight\":%.0f}",
+      filament_id, initial_weight, spool_weight, remaining_weight);
+  else
+    snprintf(body, sizeof(body),
+      "{\"filament_id\":%d,\"initial_weight\":%.0f,\"remaining_weight\":%.0f}",
+      filament_id, initial_weight, remaining_weight);
   int code = http.POST(body);
   if ((code == 200 || code == 201) && out_spool_id) {
     JsonDocument doc;

@@ -135,6 +135,21 @@ void updateLinkButton() {
 
   if (!btn_dried || !btn_link || !slot1 || !btn_copy) return;
 
+  // Nothing on screen: the left slot offers a spool by its id, which is the
+  // only thing it could do. Weighing needs a spool, the location one as well.
+  const bool empty = !tag_present && !sm_found;
+  if (btn_by_id) {
+    if (empty) lv_obj_clear_flag(btn_by_id, LV_OBJ_FLAG_HIDDEN);
+    else       lv_obj_add_flag(btn_by_id,   LV_OBJ_FLAG_HIDDEN);
+  }
+  if (empty) {
+    lv_obj_add_flag(slot1,             LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(btn_dried,       LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(btn_link,          LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(btn_copy,          LV_OBJ_FLAG_HIDDEN);
+    return;
+  }
+
   // Two slots, four buttons: weight and link share the left one, dried and
   // copy the right. An archived spool is the third combination of the same
   // four, not a fifth button - there is no room for one anyway.
