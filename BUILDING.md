@@ -155,12 +155,13 @@ The firmware is built for one board at a time. Everything above describes the WT
 |---|---|---|---|
 | WT32-SC01 Plus | `wt32-sc01-plus` | 480×320, native | the reference board |
 | Waveshare ESP32-S3-Touch-LCD-7 | `waveshare-s3-lcd7` | 800×480, the 480×320 UI enlarged to fill it | new, see the notes below |
+| Waveshare ESP32-S3-Touch-LCD-4.3B | `waveshare-s3-lcd7` | same image as the 7" | confirmed, same wiring |
 
-The Waveshare ESP32-S3-Touch-LCD-7 has its own printable enclosure, the [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) on MakerWorld.
+The Waveshare ESP32-S3-Touch-LCD-7 has its own printable enclosure, the [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) on MakerWorld. The 4.3B uses the same firmware; there is no enclosure listed for it yet.
 
-### Waveshare ESP32-S3-Touch-LCD-7
+### Waveshare ESP32-S3-Touch-LCD-7 (and 4.3B)
 
-The 800×480 version with the ESP32-S3-WROOM-1-N16R8 module (16 MB flash, 8 MB PSRAM). The 1024×600 "7B" is a different board and is not supported.
+The 800×480 boards with the ESP32-S3-WROOM-1-N16R8 module (16 MB flash, 8 MB PSRAM): the 7" and the **4.3B**. They share the same RGB panel pinout, touch and CH422G expander, so one image (`waveshare-s3-lcd7`) runs on both. The 1024×600 "7B" is a different board and is not supported.
 
 **What is different on this board**
 
