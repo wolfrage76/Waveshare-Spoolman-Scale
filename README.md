@@ -40,6 +40,7 @@ There is a printable enclosure for each board, the **Spoolman T-Scale**, on Make
 | Board | Enclosure |
 |---|---|
 | Waveshare ESP32-S3-Touch-LCD-7 | 👉 [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) |
+| Waveshare ESP32-S3-Touch-LCD-4.3B | 👉 [4.3" Spoolman T-Scale](https://makerworld.com/en/models/3500125-4-3-spoolman-t-scale-waveshare-esp32-s3-43b) |
 | WT32-SC01 Plus | 👉 [Spoolman T-Scale](https://makerworld.com/en/models/3302257-spoolman-t-scale-filamant-scale-filaman-bambuddy#profileId-3747973) |
 
 For the WT32-SC01 Plus, the original project's enclosure further down this page fits as well.
