@@ -271,7 +271,14 @@ bool displayHardwareBegin(void (*touch_activity_cb)()) {
   indev_drv.type = LV_INDEV_TYPE_POINTER;
   indev_drv.read_cb = lvgl_touch;
   indev_drv.feedback_cb = touchFeedback;
-  lv_indev_drv_register(&indev_drv);
+  lv_indev_t* indev = lv_indev_drv_register(&indev_drv);
+#ifdef BOARD_TOUCH_READ_MS
+  // A controller with a minimum time between reads: polled no faster, so
+  // every read LVGL sees is a fresh point (see the board's panel.cpp).
+  lv_timer_set_period(indev->driver->read_timer, BOARD_TOUCH_READ_MS);
+#else
+  (void)indev;
+#endif
 
   return true;
 }

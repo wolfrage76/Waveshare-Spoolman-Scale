@@ -15,7 +15,7 @@ jobs:
     # the web flasher. scripts/check.sh refuses a board that is in
     # platformio.ini and missing in either workflow.
     env:
-      OTHER_BOARDS: waveshare-s3-lcd7
+      OTHER_BOARDS: waveshare-s3-lcd7 guition-jc3248w535c
     strategy:
       matrix:
         env: [wt32-sc01-plus]

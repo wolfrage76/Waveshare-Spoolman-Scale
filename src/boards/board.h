@@ -46,6 +46,8 @@
   #include "boards/wt32_sc01_plus/board_config.h"
 #elif defined(BOARD_WAVESHARE_S3_LCD7)
   #include "boards/waveshare_s3_lcd7/board_config.h"
+#elif defined(BOARD_GUITION_JC3248W535C)
+  #include "boards/guition_jc3248w535c/board_config.h"
 #else
   #error "No board selected: the environment in platformio.ini must define a BOARD_* macro"
 #endif

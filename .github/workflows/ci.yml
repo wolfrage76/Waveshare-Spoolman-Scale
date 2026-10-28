@@ -65,7 +65,7 @@ jobs:
       # is caught here, not by whoever owns the other board.
       fail-fast: false
       matrix:
-        env: [wt32-sc01-plus, waveshare-s3-lcd7]
+        env: [wt32-sc01-plus, waveshare-s3-lcd7, guition-jc3248w535c]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

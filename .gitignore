@@ -42,6 +42,7 @@ images/images_not_for_github/
 !copy_release.py
 !lvgl_speed.py
 !manifest.json
+!manifest-*.json
 !version.json
 !README.md
 !BUILDING.md

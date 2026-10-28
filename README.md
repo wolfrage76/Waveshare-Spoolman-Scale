@@ -31,6 +31,7 @@ The WT32-SC01 Plus stays supported and is built from the same code.
 | WT32-SC01 Plus | The [original](https://github.com/Niko11111/SpoolmanScale), unless you want something from the list above |
 | Waveshare ESP32-S3-Touch-LCD-7 (800×480) | This fork (`waveshare-s3-lcd7`) |
 | Waveshare ESP32-S3-Touch-LCD-4.3B (800×480) | This fork, same image as the 7" |
+| Guition JC3248W535C (3.5", 480×320 landscape) | This fork (`guition-jc3248w535c`) |
 | Waveshare 7B (1024×600) or another board | Not supported yet |
 
 ## Enclosures

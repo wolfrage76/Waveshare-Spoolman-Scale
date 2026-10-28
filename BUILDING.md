@@ -156,6 +156,7 @@ The firmware is built for one board at a time. Everything above describes the WT
 | WT32-SC01 Plus | `wt32-sc01-plus` | 480×320, native | the reference board |
 | Waveshare ESP32-S3-Touch-LCD-7 | `waveshare-s3-lcd7` | 800×480, the 480×320 UI enlarged to fill it | new, see the notes below |
 | Waveshare ESP32-S3-Touch-LCD-4.3B | `waveshare-s3-lcd7` | same image as the 7" | confirmed, same wiring |
+| Guition JC3248W535C | `guition-jc3248w535c` | 320×480 turned to the UI's own 480×320 | first unit connected 28.10.2026 |
 
 The Waveshare ESP32-S3-Touch-LCD-7 has its own printable enclosure, the [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) on MakerWorld. The 4.3B uses the same firmware; there is no enclosure listed for it yet.
 
@@ -207,6 +208,43 @@ esptool --chip esp32s3 write-flash 0x0 SpoolmanScale-waveshare-s3-lcd7_<version>
 If the board is not found: hold **BOOT**, press and release **RESET**, release **BOOT**, and try again.
 
 Later updates come over WiFi as on the WT32. The board downloads its own image (`SpoolmanScale-waveshare-s3-lcd7.bin`), and the upload in the browser refuses an image built for another board.
+
+### Guition JC3248W535C
+
+The capacitive 3.5 inch, marked JC3248W535C_I_Y or JC3248W535C_L_I_Y: ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB octal PSRAM), AXS15231B display and touch. The glass is 320×480 in portrait. The firmware turns it to 480×320, so the UI is the same size as on the WT32.
+
+**What is different on this board**
+
+- **The picture** is the WT32's 480×320 UI, turned to fit. Brightness is a real PWM on the backlight, as on the WT32.
+- **USB**: the USB-C port, for flashing, the serial log and the Web Flasher.
+- **SD card**: the socket on the board is used for the log, as on the WT32.
+- **If the picture is upside down**, picture and touch together, switch `LANDSCAPE_TURN` in `src/boards/guition_jc3248w535c/panel.cpp` from 0 to 1 and build again. Scrambled colours, or red and blue exchanged, are the two knobs next to it, `WIRE_SWAPS_BYTES` and `MADCTL`.
+
+**Wiring**
+
+The PN532 and the NAU7802 share one I2C bus, on the board's **I2C connector**. It is brought out twice, a 1.25 mm JST and a 1.0 mm Qwiic plug, wired the same way. Pin 1 is GND, pin 2 is 3.3 V, pin 3 is SDA, pin 4 is SCL.
+
+| Signal | ESP32-S3 pin | Where on the board | Connect to |
+|---|---|---|---|
+| SDA | GPIO17 | I2C connector, pin 3 | PN532 SDA + NAU7802 SDA |
+| SCL | GPIO18 | I2C connector, pin 4 | PN532 SCL + NAU7802 SCL |
+| RST (optional) | GPIO6 | 8 pin header, IO6 | PN532 RSTPD_N |
+| GND | GND | I2C connector, pin 1 | PN532 GND + NAU7802 GND |
+| Supply | 3.3 V | I2C connector, pin 2 | PN532 VCC + NAU7802 VIN |
+
+Leave **IO5 (GPIO5)** alone: it is the battery voltage divider. Leave **IO46 (GPIO46)** alone: it is a strapping pin.
+
+**Flashing**
+
+With PlatformIO, from the repository, board on the USB-C port:
+
+```
+pio run -e guition-jc3248w535c -t upload
+```
+
+If the board is not found: hold **BOOT**, press and release **RESET**, release **BOOT**, and try again.
+
+Later updates come over WiFi. The board downloads its own image (`SpoolmanScale-guition-jc3248w535c.bin`), and the upload in the browser refuses an image built for another board.
 
 ### Adding a board
 
