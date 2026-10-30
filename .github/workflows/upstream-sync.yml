@@ -279,7 +279,7 @@ jobs:
         run: |
           {
             echo "### $F is built, not released"
-            echo "Upstream $U is merged and both boards compiled. Download the firmware artifacts on this run and flash a scale before approving **Release $F**."
+            echo "Upstream $U is merged and every board compiled. Download the firmware artifacts on this run and flash a scale before approving **Release $F**."
             echo "Rejecting that job leaves the tag unpublished. The branch \`${{ needs.detect.outputs.branch }}\` stays until a release is approved."
           } >> "$GITHUB_STEP_SUMMARY"
 

@@ -236,10 +236,18 @@ Leave **IO5 (GPIO5)** alone: it is the battery voltage divider. Leave **IO46 (GP
 
 **Flashing**
 
+In the browser, with nothing to install: open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/#guition-jc3248w535c) in Chrome or Edge, with the board on its USB-C port.
+
 With PlatformIO, from the repository, board on the USB-C port:
 
 ```
 pio run -e guition-jc3248w535c -t upload
+```
+
+Or flash a release without building: every release carries `SpoolmanScale-guition-jc3248w535c_<version>_factory.bin`, one file with bootloader, partition table and firmware, to be written at offset 0:
+
+```
+esptool --chip esp32s3 write-flash 0x0 SpoolmanScale-guition-jc3248w535c_<version>_factory.bin
 ```
 
 If the board is not found: hold **BOOT**, press and release **RESET**, release **BOOT**, and try again.

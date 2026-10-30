@@ -31,9 +31,10 @@
 // 8 MB of octal PSRAM, the same kind the list rows were measured on.
 #define BOARD_LIST_ROWS_IN_PSRAM  1
 
-// Nothing to bring up before the SD card and the display. The touch bus is
-// not the sensor bus, and the card's chip select is a GPIO of its own.
-inline void boardEarlyInit() {}
+// Holds the battery boost on when an I2C IP5306 answers. The display and the
+// card do not depend on it: the touch bus is not the sensor bus, and the
+// card's chip select is a GPIO of its own. See board.cpp.
+void boardEarlyInit();
 
 namespace hw_pins {
 

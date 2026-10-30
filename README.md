@@ -19,6 +19,7 @@
 
 - **More than one board from one code base.** Everything a board decides (pins, panel, touch, backlight) lives in its own folder under `src/boards/`. The rest of the firmware names no board. How to add one is in [BUILDING.md](BUILDING.md#adding-a-board).
 - **The Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480) **and the ESP32-S3-Touch-LCD-4.3B** (4.3", same 800×480). Same firmware image for both. The UI is the WT32-SC01 Plus layout enlarged to fill the panel, with every screen and setting. Wiring and what is different: [Other Boards](BUILDING.md#other-boards).
+- **The Guition JC3248W535C** (3.5"). The glass is 320×480 and the firmware turns it to 480×320, so the UI is the same size as on the WT32-SC01 Plus. Wiring and what is different: [Guition JC3248W535C](BUILDING.md#guition-jc3248w535c).
 - **An AMS board for the larger panel.** With FilaMan as the backend, the AMS view opens a page at the panel's full 800×480 that shows every AMS and AMS-HT at once: each bay with its filament colour, material, brand and what is left.
 - **An image per board.** Every release carries one firmware file for each board, and the upload in the browser refuses a file built for another board.
 
@@ -36,7 +37,7 @@ The WT32-SC01 Plus stays supported and is built from the same code.
 
 ## Enclosures
 
-There is a printable enclosure for each board, the **Spoolman T-Scale**, on MakerWorld:
+There is a printable enclosure for the Waveshare boards and the WT32-SC01 Plus, the **Spoolman T-Scale**, on MakerWorld:
 
 | Board | Enclosure |
 |---|---|
@@ -55,6 +56,12 @@ The parts are the same as for the WT32-SC01 Plus (PN532, NAU7802 and load cell, 
 
 Pin table, flashing and everything else that is different on this board: **[Waveshare wiring and setup in BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7)**. The wiring guides on the original project's documentation site describe the WT32-SC01 Plus only.
 
+## Building a Guition scale
+
+The parts are the same as for the WT32-SC01 Plus (PN532, NAU7802 and load cell, see the hardware list further down), with a Guition JC3248W535C in place of the WT32. The PN532 and the NAU7802 share the board's **I2C connector**. That connector is brought out twice, a 1.25 mm JST and a 1.0 mm Qwiic plug, wired the same way.
+
+Pin table, flashing and everything else that is different on this board: **[Guition wiring and setup in BUILDING.md](BUILDING.md#guition-jc3248w535c)**.
+
 ## Download and updates
 
 **First flash:** open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/) in Chrome or Edge, pick your board, connect it over USB and click the button. Nothing has to be installed.
@@ -65,15 +72,17 @@ The same files are on this repository's [Releases page](https://github.com/wolfr
 |---|---|---|
 | `SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin` | Waveshare 7" and 4.3B | First flash with `esptool` instead of the Web Flasher, written at offset 0, see [BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7) |
 | `SpoolmanScale-waveshare-s3-lcd7_<version>.bin` | Waveshare 7" and 4.3B | Update through the scale's web page |
+| `SpoolmanScale-guition-jc3248w535c_<version>_factory.bin` | Guition JC3248W535C | First flash with `esptool` instead of the Web Flasher, written at offset 0, see [BUILDING.md](BUILDING.md#guition-jc3248w535c) |
+| `SpoolmanScale-guition-jc3248w535c_<version>.bin` | Guition JC3248W535C | Update through the scale's web page |
 | `SpoolmanScale_<version>.bin` | WT32-SC01 Plus | Update through the scale's web page |
 
-The two files without a version in their name are what a scale downloads when it updates itself.
+The files without a version in their name are what a scale downloads when it updates itself. Each board downloads its own.
 
-A scale running this fork looks for updates **here**, not at the original project. The original's Web Flasher does not carry the Waveshare image; use the one linked above.
+A scale running this fork looks for updates **here**, not at the original project. The original's Web Flasher does not carry these boards' images; use the one linked above.
 
 ## How it relates to the original
 
-This fork follows the original's releases: every 20 minutes it checks for a new public release of the original, merges it, and builds and checks every board. The firmware from that run can be flashed before the release is approved; approving it publishes the same version here with `-w1` at the end. Version numbers are the original's; the counter at the end marks a release of this fork, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. Enclosures for both boards are [listed above](#enclosures).
+This fork follows the original's releases: every 20 minutes it checks for a new public release of the original, merges it, and builds and checks every board. The firmware from that run can be flashed before the release is approved; approving it publishes the same version here with `-w1` at the end. Version numbers are the original's; the counter at the end marks a release of this fork, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. Enclosures for the boards that have one are [listed above](#enclosures).
 
 Problems with the Waveshare board or with anything in the list above belong to this fork. Please do not report them to the original project.
 
