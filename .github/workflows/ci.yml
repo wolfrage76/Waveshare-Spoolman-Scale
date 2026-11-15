@@ -77,14 +77,27 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.platformio/.cache
+            ~/.platformio-spoolmanscale/.cache
           key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # Pinned like the platform and the libraries: 6.2.0.post1 reports itself
+      # as 6.2.0-post.1, which the pinned platform reads as older than the
+      # 6.2.0 it requires, and every build stopped there (27.10.2026, fixed
+      # the same way upstream).
       - name: Install PlatformIO
-        run: pip install --upgrade platformio
+        run: pip install platformio==6.2.0
+      # The platform builds part of the firmware in its own Python environment
+      # (penv under core_dir, see platformio.ini) and installs
+      # "pioarduino>=6.2.0" there, which resolves to 6.2.0.post1 with the same
+      # version string problem. Created here with 6.2.0, the platform finds it
+      # satisfied and keeps it.
+      - name: Pin PlatformIO inside the platform's environment
+        run: |
+          python -m venv ~/.platformio-spoolmanscale/penv
+          ~/.platformio-spoolmanscale/penv/bin/pip install --quiet pioarduino==6.2.0
       - name: Build
         run: pio run -e ${{ matrix.env }}
       - name: Refuse a binary an installed device could not take
