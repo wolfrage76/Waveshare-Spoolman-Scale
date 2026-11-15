@@ -71,6 +71,9 @@ bool githubLatestTag(bool prerelease, char *tag, size_t tag_len,
   http.begin(client, url);
   http.addHeader("User-Agent", "SpoolmanScale-ESP32");
   http.setTimeout(8000);
+  // After a rename of this fork, api.github.com answers the old name with a
+  // 301 to /repositories/<id>/... The client does not follow it by default.
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   const uint32_t heap_before = ESP.getFreeHeap();
   int code = http.GET();
   Serial.printf("GitHub API: %d\n", code);
@@ -220,6 +223,9 @@ bool githubReleaseByTag(const char *tag, GithubRelease &out,
   http.begin(client, url);
   http.addHeader("User-Agent", "SpoolmanScale-ESP32");
   http.setTimeout(8000);
+  // After a rename of this fork, api.github.com answers the old name with a
+  // 301 to /repositories/<id>/... The client does not follow it by default.
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   int code = http.GET();
 
   // 404 is the ordinary answer for a build that was never published - a local
