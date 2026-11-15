@@ -6,14 +6,11 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include <esp_lcd_panel_io.h>
-#include <esp_lcd_io_spi.h>
 #include <esp_heap_caps.h>
 #include <driver/spi_master.h>
 #include <driver/gpio.h>
 #include <driver/rtc_io.h>
 #include <esp_sleep.h>
-#include <freertos/semphr.h>
 #include <string.h>
 
 // ============================================================
@@ -65,44 +62,115 @@ static constexpr int DMA_PX = DISPLAY_W_PX * DMA_LINES;
 static constexpr uint32_t BL_HZ = 5000;
 static constexpr uint8_t BL_BITS = 8;
 
-static esp_lcd_panel_io_handle_t s_io = nullptr;
+static spi_device_handle_t s_spi = nullptr;
 static uint16_t* s_dma = nullptr;
-static SemaphoreHandle_t s_done = nullptr;
 static bool s_ready = false;
 static bool s_touch = false;
 static bool s_pwm = false;
 
-static bool IRAM_ATTR onColorDone(esp_lcd_panel_io_handle_t,
-                                  esp_lcd_panel_io_event_data_t*, void*) {
-  BaseType_t woke = pdFALSE;
-  xSemaphoreGiveFromISR(s_done, &woke);
-  return woke == pdTRUE;
+// The descriptors and their bytes have to outlive the transfer. A queued
+// one stays in the driver until it is collected, including across the
+// timeout below.
+static uint8_t s_hdr[4];
+static uint8_t s_param[8];
+static spi_transaction_t s_t_hdr;
+static spi_transaction_t s_t_param;
+static spi_transaction_t s_t_pix;
+static int s_outstanding = 0;
+
+// The driver's own wait for a queued transfer is forever. That wait is this
+// loop, so a transfer that never finishes takes the screen and the web
+// server with it (03.11.2026, a render bench left the loop there while the
+// chip still answered pings). Collect with a deadline instead, and do not
+// start another transfer while one is still out: the bus lock has no
+// deadline of its own.
+static bool busFree(TickType_t wait) {
+  const TickType_t start = xTaskGetTickCount();
+  while (s_outstanding > 0) {
+    const TickType_t elapsed = xTaskGetTickCount() - start;
+    const TickType_t left = (elapsed >= wait) ? 0 : (wait - elapsed);
+    spi_transaction_t* done = nullptr;
+    if (spi_device_get_trans_result(s_spi, &done, left) != ESP_OK) {
+      static uint32_t last_ms = 0;
+      const uint32_t now = millis();
+      if ((uint32_t)(now - last_ms) >= 5000) {
+        last_ms = now;
+        Serial.println("Panel: transfer still running, frame skipped");
+      }
+      return false;
+    }
+    s_outstanding--;
+  }
+  return true;
 }
 
-// Command phase is one line, opcode 0x02 and the command in the next byte.
-// Pixel phase is four lines, opcode 0x32. The panel IO sends the 32 bit word
-// high byte first.
+// Header on one data line, then the parameters. Chip select stays down
+// across the two when there are parameters. Opcode 0x02, the command in
+// the third byte.
 static bool sendCmd(uint8_t cmd, const void* data, size_t len) {
-  const int word = (0x02 << 24) | ((int)cmd << 8);
-  const esp_err_t err = esp_lcd_panel_io_tx_param(s_io, word, data, len);
-  if (err == ESP_OK) return true;
-  Serial.printf("Panel: command 0x%02x refused, error 0x%x\n", cmd, (unsigned)err);
-  return false;
-}
-
-// The colour transfer is queued. The buffer has to stay put until the last
-// chunk has gone out, which is what the callback reports.
-static bool sendPixels(const void* px, size_t bytes) {
-  const int word = (0x32 << 24) | (0x2C << 8);
-  xSemaphoreTake(s_done, 0);
-  const esp_err_t err = esp_lcd_panel_io_tx_color(s_io, word, px, bytes);
-  if (err != ESP_OK) {
-    Serial.printf("Panel: pixel write refused, error 0x%x\n", (unsigned)err);
+  if (!s_spi || len > sizeof s_param || !busFree(pdMS_TO_TICKS(20))) return false;
+  s_hdr[0] = 0x02;
+  s_hdr[1] = 0x00;
+  s_hdr[2] = cmd;
+  s_hdr[3] = 0x00;
+  memset(&s_t_hdr, 0, sizeof s_t_hdr);
+  s_t_hdr.length = 32;
+  s_t_hdr.tx_buffer = s_hdr;
+  if (len) s_t_hdr.flags = SPI_TRANS_CS_KEEP_ACTIVE;
+  if (spi_device_acquire_bus(s_spi, portMAX_DELAY) != ESP_OK) return false;
+  if (spi_device_queue_trans(s_spi, &s_t_hdr, pdMS_TO_TICKS(5)) != ESP_OK) {
+    spi_device_release_bus(s_spi);
     return false;
   }
-  if (xSemaphoreTake(s_done, pdMS_TO_TICKS(200)) == pdTRUE) return true;
-  Serial.println("Panel: pixel write did not finish");
+  s_outstanding = 1;
+  if (len) {
+    memcpy(s_param, data, len);
+    memset(&s_t_param, 0, sizeof s_t_param);
+    s_t_param.length = len * 8;
+    s_t_param.tx_buffer = s_param;
+    if (spi_device_queue_trans(s_spi, &s_t_param, pdMS_TO_TICKS(5)) != ESP_OK) {
+      spi_device_release_bus(s_spi);
+      busFree(pdMS_TO_TICKS(20));
+      return false;
+    }
+    s_outstanding = 2;
+  }
+  spi_device_release_bus(s_spi);
+  if (busFree(pdMS_TO_TICKS(20))) return true;
+  Serial.printf("Panel: command 0x%02x did not finish\n", cmd);
   return false;
+}
+
+// Pixel phase is four data lines, opcode 0x32, command 0x2C, then the
+// bytes. Same chip-select hold as the panel IO this replaces.
+static bool sendPixels(const void* px, size_t bytes) {
+  if (!s_spi || !bytes || !busFree(pdMS_TO_TICKS(20))) return false;
+  s_hdr[0] = 0x32;
+  s_hdr[1] = 0x00;
+  s_hdr[2] = 0x2C;
+  s_hdr[3] = 0x00;
+  memset(&s_t_hdr, 0, sizeof s_t_hdr);
+  s_t_hdr.length = 32;
+  s_t_hdr.tx_buffer = s_hdr;
+  s_t_hdr.flags = SPI_TRANS_CS_KEEP_ACTIVE;
+  memset(&s_t_pix, 0, sizeof s_t_pix);
+  s_t_pix.length = bytes * 8;
+  s_t_pix.tx_buffer = px;
+  s_t_pix.flags = SPI_TRANS_MODE_QIO;
+  if (spi_device_acquire_bus(s_spi, portMAX_DELAY) != ESP_OK) return false;
+  if (spi_device_queue_trans(s_spi, &s_t_hdr, pdMS_TO_TICKS(5)) != ESP_OK) {
+    spi_device_release_bus(s_spi);
+    return false;
+  }
+  s_outstanding = 1;
+  if (spi_device_queue_trans(s_spi, &s_t_pix, pdMS_TO_TICKS(5)) != ESP_OK) {
+    spi_device_release_bus(s_spi);
+    busFree(pdMS_TO_TICKS(20));
+    return false;
+  }
+  s_outstanding = 2;
+  spi_device_release_bus(s_spi);
+  return busFree(pdMS_TO_TICKS(30));
 }
 
 // x, y, w, h are the glass's own, portrait, origin top left.
@@ -218,12 +286,11 @@ bool panelBegin() {
   rtc_gpio_deinit((gpio_num_t)hw_pins::TOUCH_INT);
   backlightOffPin();
 
-  if (!s_done) s_done = xSemaphoreCreateBinary();
   if (!s_dma) {
     s_dma = (uint16_t*)heap_caps_malloc((size_t)DMA_PX * sizeof(uint16_t),
                                         MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
   }
-  if (!s_done || !s_dma) {
+  if (!s_dma) {
     Serial.println("Panel: no DMA buffer");
     return false;
   }
@@ -246,20 +313,17 @@ bool panelBegin() {
     return false;
   }
 
-  esp_lcd_panel_io_spi_config_t io = {};
-  io.cs_gpio_num = hw_pins::LCD_CS;
-  io.dc_gpio_num = -1;
-  io.spi_mode = 0;
-  io.pclk_hz = LCD_PCLK_HZ;
-  io.trans_queue_depth = 1;
-  io.on_color_trans_done = onColorDone;
-  io.lcd_cmd_bits = 32;
-  io.lcd_param_bits = 8;
-  io.flags.quad_mode = 1;
-  err = esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &io, &s_io);
-  if (err != ESP_OK || !s_io) {
-    Serial.printf("Panel: the panel IO refused, error 0x%x\n", (unsigned)err);
-    s_io = nullptr;
+  spi_device_interface_config_t dev = {};
+  dev.flags = SPI_DEVICE_HALFDUPLEX;
+  dev.clock_speed_hz = LCD_PCLK_HZ;
+  dev.mode = 0;
+  dev.spics_io_num = hw_pins::LCD_CS;
+  // A command and its bytes are queued together, so the queue holds two.
+  dev.queue_size = 2;
+  err = spi_bus_add_device((spi_host_device_t)LCD_HOST, &dev, &s_spi);
+  if (err != ESP_OK || !s_spi) {
+    Serial.printf("Panel: the SPI device refused, error 0x%x\n", (unsigned)err);
+    s_spi = nullptr;
     return false;
   }
   if (!panelInit() || !fillBlack()) {
